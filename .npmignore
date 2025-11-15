@@ -1,0 +1,35 @@
+# Source files
+src/
+examples/
+test/
+
+# Config files
+.eslintrc.js
+.prettierrc
+tsconfig.json
+jest.config.js
+docker-compose.yml
+
+# Documentation
+CONTRIBUTING.md
+CHANGELOG.md
+
+# Test coverage
+coverage/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Development
+.vscode/
+.idea/
+*.log
+.DS_Store
+.env
+
+# Git
+.git/
+.gitignore
+
+# NPM
+node_modules/
