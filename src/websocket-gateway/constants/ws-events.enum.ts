@@ -45,6 +45,9 @@ export enum WsEvent {
   ACTIVITY_PING = 'ACTIVITY_PING',
   ACTIVITY_PONG = 'ACTIVITY_PONG',
 
+  // Server management events (BE-001.1 Step 4)
+  SERVER_SHUTDOWN = 'SERVER_SHUTDOWN',
+
   // Y.js CRDT sync events (BE-001.4)
   SYNC_STEP_1 = 'SYNC_STEP_1',
   SYNC_STEP_2 = 'SYNC_STEP_2',

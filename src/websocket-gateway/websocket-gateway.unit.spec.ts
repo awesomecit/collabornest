@@ -45,7 +45,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
         }),
       ).toString('base64')}.signature`;
 
-    return {
+    const mockSocket: Partial<Socket> = {
       id: socketId,
       handshake: {
         auth: { token: jwtToken },
@@ -58,9 +58,24 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       emit: jest.fn(),
       disconnect: jest.fn(),
     };
+
+    // Add socket to server's socket map for forceDisconnect to find
+    if (gateway && gateway.server) {
+      gateway.server.sockets.sockets.set(socketId, mockSocket as Socket);
+    }
+
+    return mockSocket;
   };
 
   beforeEach(async () => {
+    // Mock Socket.IO server
+    const mockServer = {
+      emit: jest.fn(),
+      sockets: {
+        sockets: new Map(),
+      },
+    };
+
     const mockConfigService = {
       getPort: jest.fn().mockReturnValue(3001),
       getNamespace: jest.fn().mockReturnValue('/collaboration'),
@@ -123,6 +138,9 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
     configService = module.get<WebSocketGatewayConfigService>(
       WebSocketGatewayConfigService,
     );
+
+    // Inject mock server
+    gateway.server = mockServer as any;
 
     // Reset mock counter
     mockClientIdCounter = 0;
@@ -403,6 +421,325 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       expect(
         new Date(connectionInfo!.connectedAt).getTime(),
       ).toBeGreaterThanOrEqual(new Date(beforeConnect).getTime());
+    });
+  });
+
+  // ==============================================================================
+  // BE-001.1 Step 4: Connection Pool Advanced Management
+  // ==============================================================================
+
+  describe('Pool Statistics (Step 4.2)', () => {
+    it('should provide total connections count', async () => {
+      // GIVEN - Connect 3 users
+      const clients: Socket[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const client = createMockSocket(`stats-user-${i}`) as Socket;
+        await gateway.handleConnection(client);
+        clients.push(client);
+      }
+
+      // WHEN
+      const stats = gateway.getPoolStats();
+
+      // THEN
+      expect(stats.totalConnections).toBe(3);
+    });
+
+    it('should provide unique users count', async () => {
+      // GIVEN - User1 has 2 connections, User2 has 1 connection
+      const user1client1 = createMockSocket('multi-user') as Socket;
+      const user1client2 = createMockSocket('multi-user') as Socket;
+      const user2client1 = createMockSocket('single-user') as Socket;
+
+      await gateway.handleConnection(user1client1);
+      await gateway.handleConnection(user1client2);
+      await gateway.handleConnection(user2client1);
+
+      // WHEN
+      const stats = gateway.getPoolStats();
+
+      // THEN
+      expect(stats.totalConnections).toBe(3);
+      expect(stats.uniqueUsers).toBe(2);
+    });
+
+    it('should provide connections by transport type', async () => {
+      // GIVEN - 2 websocket, 1 polling
+      const wsClient1 = createMockSocket('ws-user-1') as Socket;
+      const wsClient2 = createMockSocket('ws-user-2') as Socket;
+      const pollingClient = createMockSocket('polling-user') as Socket;
+      // Override transport type for test
+      (pollingClient.conn as any).transport = { name: 'polling' };
+
+      await gateway.handleConnection(wsClient1);
+      await gateway.handleConnection(wsClient2);
+      await gateway.handleConnection(pollingClient);
+
+      // WHEN
+      const stats = gateway.getPoolStats();
+
+      // THEN
+      expect(stats.byTransport.websocket).toBe(2);
+      expect(stats.byTransport.polling).toBe(1);
+    });
+
+    it('should detect stale connections based on lastActivityAt', async () => {
+      // GIVEN - Connect user and manually modify lastActivityAt to simulate staleness
+      const mockClient = createMockSocket('stale-user') as Socket;
+      await gateway.handleConnection(mockClient);
+
+      const connectionInfo = gateway.getConnectionInfo(mockClient.id!);
+      const staleTimestamp = new Date(Date.now() - 5 * 60 * 1000).toISOString(); // 5 minutes ago
+      connectionInfo!.lastActivityAt = staleTimestamp;
+
+      // WHEN
+      const stats = gateway.getPoolStats();
+
+      // THEN
+      expect(stats.staleConnections).toBe(1);
+    });
+  });
+
+  describe('Admin Force Disconnect (Step 4.3)', () => {
+    it('should force disconnect a single connection by socketId', async () => {
+      // GIVEN
+      const mockClient = createMockSocket('force-user') as Socket;
+      await gateway.handleConnection(mockClient);
+
+      expect(gateway.getConnectionPoolSize()).toBe(1);
+
+      // WHEN
+      gateway.forceDisconnect(mockClient.id!);
+
+      // THEN
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+    });
+
+    it('should disconnect all connections for a specific user', async () => {
+      // GIVEN - User has 3 connections
+      const clients: Socket[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const client = createMockSocket('multi-conn-user') as Socket;
+        await gateway.handleConnection(client);
+        clients.push(client);
+      }
+
+      expect(gateway.getConnectionPoolSize()).toBe(3);
+
+      // WHEN
+      const disconnectedCount = gateway.disconnectUser('multi-conn-user');
+
+      // THEN
+      expect(disconnectedCount).toBe(3);
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+      clients.forEach((client: Socket) => {
+        expect(client.disconnect).toHaveBeenCalledWith(true);
+      });
+    });
+
+    it('should return 0 when disconnecting non-existent user', () => {
+      // GIVEN - no connections
+
+      // WHEN
+      const count = gateway.disconnectUser('ghost-user');
+
+      // THEN
+      expect(count).toBe(0);
+    });
+  });
+
+  describe('Stale Connection Cleanup (Step 4.1)', () => {
+    it('should detect and cleanup stale connections after inactivity threshold', async () => {
+      // GIVEN - Connect user with stale lastActivityAt
+      const mockClient = createMockSocket('stale-cleanup-user') as Socket;
+      await gateway.handleConnection(mockClient);
+
+      const connectionInfo = gateway.getConnectionInfo(mockClient.id!);
+      const staleTimestamp = new Date(
+        Date.now() - 10 * 60 * 1000,
+      ).toISOString(); // 10 minutes ago
+      connectionInfo!.lastActivityAt = staleTimestamp;
+
+      // WHEN
+      const cleanedUp = gateway.cleanupStaleConnections();
+
+      // THEN
+      expect(cleanedUp).toBe(1);
+      expect(mockClient.disconnect).toHaveBeenCalledWith(true);
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+    });
+
+    it('should not cleanup active connections', async () => {
+      // GIVEN - Connect user with recent activity
+      const mockClient = createMockSocket('active-user') as Socket;
+      await gateway.handleConnection(mockClient);
+
+      // lastActivityAt is set to now by default in handleConnection
+
+      // WHEN
+      const cleanedUp = gateway.cleanupStaleConnections();
+
+      // THEN
+      expect(cleanedUp).toBe(0);
+      expect(mockClient.disconnect).not.toHaveBeenCalled();
+      expect(gateway.getConnectionPoolSize()).toBe(1);
+    });
+
+    it('should cleanup only stale connections and keep active ones', async () => {
+      // GIVEN - 1 stale, 2 active
+      const staleClient = createMockSocket('stale-user') as Socket;
+      const activeClient1 = createMockSocket('active-user-1') as Socket;
+      const activeClient2 = createMockSocket('active-user-2') as Socket;
+
+      await gateway.handleConnection(staleClient);
+      await gateway.handleConnection(activeClient1);
+      await gateway.handleConnection(activeClient2);
+
+      // Make first connection stale
+      const staleInfo = gateway.getConnectionInfo(staleClient.id!);
+      staleInfo!.lastActivityAt = new Date(
+        Date.now() - 10 * 60 * 1000,
+      ).toISOString();
+
+      // WHEN
+      const cleanedUp = gateway.cleanupStaleConnections();
+
+      // THEN
+      expect(cleanedUp).toBe(1);
+      expect(staleClient.disconnect).toHaveBeenCalledWith(true);
+      expect(activeClient1.disconnect).not.toHaveBeenCalled();
+      expect(activeClient2.disconnect).not.toHaveBeenCalled();
+      expect(gateway.getConnectionPoolSize()).toBe(2);
+    });
+  });
+
+  describe('Graceful Shutdown (Step 4.5)', () => {
+    it('should notify all clients before shutdown', async () => {
+      // GIVEN - Connect 3 clients and mock server.emit
+      const mockServerEmit = jest.fn();
+      gateway.server.emit = mockServerEmit;
+
+      const clients: Socket[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const client = createMockSocket(`shutdown-user-${i}`) as Socket;
+        await gateway.handleConnection(client);
+        clients.push(client);
+      }
+
+      // WHEN
+      await gateway.gracefulShutdown({ timeout: 100 });
+
+      // THEN - Server should broadcast shutdown notification
+      expect(mockServerEmit).toHaveBeenCalledWith(
+        WsEvent.SERVER_SHUTDOWN,
+        expect.objectContaining({
+          message: expect.any(String),
+          timestamp: expect.any(String),
+        }),
+      );
+    });
+
+    it('should force disconnect remaining clients after timeout', async () => {
+      // GIVEN
+      const client = createMockSocket('stubborn-client') as Socket;
+      await gateway.handleConnection(client);
+
+      // WHEN
+      await gateway.gracefulShutdown({ timeout: 100 });
+
+      // THEN
+      expect(client.disconnect).toHaveBeenCalledWith(true);
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+    });
+
+    it('should clear connection pool after shutdown', async () => {
+      // GIVEN
+      const clients: Socket[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const client = createMockSocket(`pool-clear-user-${i}`) as Socket;
+        await gateway.handleConnection(client);
+        clients.push(client);
+      }
+
+      expect(gateway.getConnectionPoolSize()).toBe(3);
+
+      // WHEN
+      await gateway.gracefulShutdown({ timeout: 100 });
+
+      // THEN
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+    });
+
+    it('should integrate with NestJS lifecycle (onApplicationShutdown)', async () => {
+      // GIVEN
+      const client = createMockSocket('lifecycle-user') as Socket;
+      await gateway.handleConnection(client);
+
+      const gracefulShutdownSpy = jest.spyOn(
+        gateway as any,
+        'gracefulShutdown',
+      );
+
+      // WHEN - NestJS calls lifecycle hook
+      await gateway.onApplicationShutdown('SIGTERM');
+
+      // THEN
+      expect(gracefulShutdownSpy).toHaveBeenCalled();
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+    });
+  });
+
+  describe('Memory Leak Prevention (Step 4.4)', () => {
+    it('should remove connection from pool on disconnect', async () => {
+      // GIVEN
+      const client = createMockSocket('leak-test-user') as Socket;
+      await gateway.handleConnection(client);
+
+      expect(gateway.hasConnection(client.id!)).toBe(true);
+      expect(gateway.getConnectionPoolSize()).toBe(1);
+
+      // WHEN
+      gateway.handleDisconnect(client);
+
+      // THEN - Connection should be removed from both maps
+      expect(gateway.hasConnection(client.id!)).toBe(false);
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+      expect(gateway.getConnectionsByUserId('leak-test-user')).toHaveLength(0);
+    });
+
+    it('should cleanup user index when all user connections are closed', async () => {
+      // GIVEN - User has 2 connections
+      const client1 = createMockSocket('leak-user') as Socket;
+      const client2 = createMockSocket('leak-user') as Socket;
+
+      await gateway.handleConnection(client1);
+      await gateway.handleConnection(client2);
+
+      expect(gateway.getConnectionsByUserId('leak-user')).toHaveLength(2);
+
+      // WHEN - Close both connections
+      gateway.handleDisconnect(client1);
+      gateway.handleDisconnect(client2);
+
+      // THEN - User should be removed from index
+      expect(gateway.getConnectionsByUserId('leak-user')).toHaveLength(0);
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+    });
+
+    it('should not leak memory when forceDisconnect is used', async () => {
+      // GIVEN
+      const client = createMockSocket('force-leak-user') as Socket;
+      await gateway.handleConnection(client);
+
+      expect(gateway.getConnectionPoolSize()).toBe(1);
+
+      // WHEN
+      gateway.forceDisconnect(client.id!);
+
+      // THEN - Should cleanup both connectionPool and userConnections
+      expect(gateway.getConnectionPoolSize()).toBe(0);
+      expect(gateway.getConnectionsByUserId('force-leak-user')).toHaveLength(0);
     });
   });
 });

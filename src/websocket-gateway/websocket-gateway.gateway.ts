@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationShutdown } from '@nestjs/common';
 import {
   WebSocketGateway as NestWebSocketGateway,
   OnGatewayConnection,
@@ -91,7 +91,11 @@ export interface ConnectionInfo {
   },
 })
 export class WebSocketGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements
+    OnGatewayInit,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnApplicationShutdown
 {
   @WebSocketServer()
   server: Server;
@@ -398,5 +402,223 @@ export class WebSocketGateway
    */
   getConnectionPool(): Map<string, ConnectionInfo> {
     return this.connectionPool;
+  }
+
+  // ==============================================================================
+  // BE-001.1 Step 4: Connection Pool Advanced Management
+  // ==============================================================================
+
+  /**
+   * Get pool statistics (Step 4.2)
+   *
+   * Provides real-time metrics about connection pool state.
+   *
+   * @returns Pool statistics including total connections, unique users, transport breakdown, stale connections
+   */
+  getPoolStats(): {
+    totalConnections: number;
+    uniqueUsers: number;
+    byTransport: { websocket: number; polling: number };
+    staleConnections: number;
+  } {
+    const totalConnections = this.connectionPool.size;
+    const uniqueUsers = this.userConnections.size;
+
+    // Count by transport
+    const byTransport = { websocket: 0, polling: 0 };
+    for (const conn of this.connectionPool.values()) {
+      if (conn.transport === 'websocket') {
+        byTransport.websocket++;
+      } else if (conn.transport === 'polling') {
+        byTransport.polling++;
+      }
+    }
+
+    // Count stale connections (inactive for > 2x pingTimeout)
+    const staleThreshold = 2 * this.config.getPingTimeout(); // Default: 2 * 20s = 40s
+    const now = Date.now();
+    let staleConnections = 0;
+
+    for (const conn of this.connectionPool.values()) {
+      const inactiveMs = now - new Date(conn.lastActivityAt).getTime();
+      if (inactiveMs > staleThreshold) {
+        staleConnections++;
+      }
+    }
+
+    return {
+      totalConnections,
+      uniqueUsers,
+      byTransport,
+      staleConnections,
+    };
+  }
+
+  /**
+   * Force disconnect a single connection (Step 4.3)
+   *
+   * Admin helper to forcibly disconnect a socket and cleanup pool.
+   *
+   * @param socketId - Socket.IO socket ID to disconnect
+   */
+  forceDisconnect(socketId: string): void {
+    const socket = this.server.sockets.sockets.get(socketId);
+
+    if (socket) {
+      console.log('[DEBUG][WS][Gateway] Force disconnecting socket:', {
+        socketId,
+        timestamp: new Date().toISOString(),
+      });
+      socket.disconnect(true);
+    }
+
+    // Cleanup pool (in case socket was already gone)
+    const connectionInfo = this.connectionPool.get(socketId);
+    if (connectionInfo) {
+      this.connectionPool.delete(socketId);
+
+      // Cleanup user connections index
+      const userSocketIds = this.userConnections.get(connectionInfo.userId);
+      if (userSocketIds) {
+        userSocketIds.delete(socketId);
+        if (userSocketIds.size === 0) {
+          this.userConnections.delete(connectionInfo.userId);
+        }
+      }
+    }
+  }
+
+  /**
+   * Disconnect all connections for a user (Step 4.3)
+   *
+   * Admin helper to disconnect all sockets for a specific user.
+   *
+   * @param userId - User identifier
+   * @returns Number of connections disconnected
+   */
+  disconnectUser(userId: string): number {
+    const userSocketIds = this.userConnections.get(userId);
+
+    if (!userSocketIds || userSocketIds.size === 0) {
+      return 0;
+    }
+
+    const count = userSocketIds.size;
+    console.log('[DEBUG][WS][Gateway] Disconnecting all user connections:', {
+      userId,
+      count,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Clone set to avoid modification during iteration
+    const socketIdsArray = Array.from(userSocketIds);
+    socketIdsArray.forEach(socketId => this.forceDisconnect(socketId));
+
+    return count;
+  }
+
+  /**
+   * Cleanup stale connections (Step 4.1)
+   *
+   * Detects and forcibly disconnects connections that have been inactive
+   * for longer than the stale threshold (2x pingTimeout).
+   *
+   * @returns Number of connections cleaned up
+   */
+  cleanupStaleConnections(): number {
+    const staleThreshold = 2 * this.config.getPingTimeout(); // Default: 40s
+    const now = Date.now();
+    let cleanedUpCount = 0;
+
+    const staleSocketIds: string[] = [];
+
+    for (const [socketId, conn] of this.connectionPool.entries()) {
+      const inactiveMs = now - new Date(conn.lastActivityAt).getTime();
+
+      if (inactiveMs > staleThreshold) {
+        console.warn('[DEBUG][WS][Gateway] Stale connection detected:', {
+          socketId,
+          userId: conn.userId,
+          inactiveMs,
+          threshold: staleThreshold,
+          timestamp: new Date().toISOString(),
+        });
+        staleSocketIds.push(socketId);
+      }
+    }
+
+    // Disconnect stale connections
+    staleSocketIds.forEach(socketId => {
+      this.forceDisconnect(socketId);
+      cleanedUpCount++;
+    });
+
+    if (cleanedUpCount > 0) {
+      console.log('[DEBUG][WS][Gateway] Stale connection cleanup completed:', {
+        cleanedUpCount,
+        remainingConnections: this.connectionPool.size,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return cleanedUpCount;
+  }
+
+  /**
+   * Graceful shutdown (Step 4.5)
+   *
+   * Notifies all connected clients about server shutdown, waits for acknowledgments
+   * (with timeout), then forcibly disconnects remaining clients and clears pool.
+   *
+   * @param options - Shutdown options (timeout, message)
+   */
+  async gracefulShutdown(options?: {
+    timeout?: number;
+    message?: string;
+  }): Promise<void> {
+    const timeout = options?.timeout || 5000; // Default: 5 seconds
+    const message =
+      options?.message || 'Server is shutting down for maintenance';
+
+    console.log('[DEBUG][WS][Gateway] Graceful shutdown started:', {
+      activeConnections: this.connectionPool.size,
+      timeout,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Step 1: Notify all clients
+    this.server.emit(WsEvent.SERVER_SHUTDOWN, {
+      message,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Step 2: Wait for timeout
+    await new Promise(resolve => setTimeout(resolve, timeout));
+
+    // Step 3: Force disconnect remaining clients
+    const socketIds = Array.from(this.connectionPool.keys());
+    socketIds.forEach(socketId => this.forceDisconnect(socketId));
+
+    console.log('[DEBUG][WS][Gateway] Graceful shutdown completed:', {
+      disconnectedCount: socketIds.length,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * NestJS lifecycle hook: Application shutdown (Step 4.5)
+   *
+   * Called when NestJS application is shutting down (SIGTERM, SIGINT, etc.).
+   * Triggers graceful shutdown to cleanup connections.
+   *
+   * @param signal - Shutdown signal (SIGTERM, SIGINT, etc.)
+   */
+  async onApplicationShutdown(signal?: string): Promise<void> {
+    console.log('[DEBUG][WS][Gateway] Application shutdown signal received:', {
+      signal,
+      timestamp: new Date().toISOString(),
+    });
+
+    await this.gracefulShutdown({ timeout: 3000 }); // Shorter timeout for signals
   }
 }
