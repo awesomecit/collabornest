@@ -4,6 +4,17 @@
  */
 
 // Generic validation errors
+/**
+ * Error Messages Constants (DEPRECATED - Use HttpErrorCode/WsErrorCode enums)
+ *
+ * This file is deprecated in favor of Single Source of Truth pattern.
+ * New code should use:
+ * - HTTP errors: src/common/constants/http-error-codes.enum.ts
+ * - WebSocket errors: src/websocket-gateway/constants/ws-error-codes.enum.ts
+ *
+ * @deprecated Use HttpErrorCode/WsErrorCode enums for type-safe error handling
+ */
+
 export const ERROR_MESSAGES = {
   // String validation
   IS_STRING: 'FIELD_MUST_BE_A_STRING',

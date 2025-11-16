@@ -14,12 +14,12 @@
  * @see https://socket.io/docs/v4/emitting-events/
  */
 export enum WsEvent {
-  // Connection lifecycle events
+  // Connection lifecycle events (custom)
   CONNECTED = 'CONNECTED',
   DISCONNECTED = 'DISCONNECTED',
 
-  // Error events
-  CONNECT_ERROR = 'connect_error',
+  // Error events (Socket.IO reserved - must be lowercase snake_case)
+  CONNECT_ERROR = 'connect_error', // Reserved by Socket.IO specification
 
   // Room management events (BE-001.2)
   JOIN_ROOM = 'JOIN_ROOM',
