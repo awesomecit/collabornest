@@ -1,7 +1,13 @@
 # CollaborNest - Product Roadmap
 
 > **Last Updated**: November 16, 2025
-> **Vers| Wee| W| Week | Milestone | Deliverable | Status |
+> **Vers| Wee| W| Wee| Week | Milestone | Deliverable | Status | Priority |
+> | ---- | --------------------- | -------------------------------------------------- | ------------- | -------- |
+> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed | - |
+> | 2-3 | Heartbeat & Presence | Activity ping/pong, room join/leave, presence sync | ✅ Completed | - |
+> | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 🔄 In Progress | 🔴 CRITICAL |
+> | 5-6 | Presence Persistence | Redis Streams, event broadcasting, scalability | 📋 Planned | High |
+> | 7-8 | Y.js CRDT | Conflict-free editing, state synchronization | 📋 Deferred | Medium |estone | Deliverable | Status |
 > | ---- | --------------------- | -------------------------------------------------- | ------------ |
 > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
 > | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detect) | ✅ Completed |
@@ -106,9 +112,9 @@ gantt
 
 - [x] **WebSocket connection with JWT authentication** ✅ COMPLETE
 - [x] **Real-time presence tracking (join/leave events)** ✅ COMPLETE (single-instance)
-- [ ] Redis-backed distributed locks (< 5ms latency) - Week 3-4
-- [ ] Y.js document synchronization - Week 4-6
-- [ ] RabbitMQ event broadcasting across instances - Week 5-6
+- [ ] 🔴 **CRITICAL: Redis-backed distributed locks (< 5ms latency)** - Week 3-4 (UI BLOCKER)
+- [ ] Redis Streams event broadcasting across instances - Week 5-6
+- [ ] Y.js document synchronization - Week 7-8 (DEFERRED post-locking)
 - [ ] NDJSON audit logs with 10-year retention - Week 6-7
 - [ ] Load test: 500+ concurrent users with < 200ms P99 latency - Week 8
 

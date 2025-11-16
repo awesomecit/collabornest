@@ -26,6 +26,7 @@
 | [INFRA-001](#infra-001-nginx-reverse-proxy-configuration)         | 🏗️ Infra   | Nginx reverse-proxy for WebSocket      | High     | Medium     | Q4 2025  | 📋 Planned  |
 | [INFRA-002](#infra-002-redis-adapter-multi-instance-scaling)      | 🏗️ Infra   | Redis adapter for horizontal scaling   | Medium   | Medium     | Q1 2026  | 📋 Planned  |
 | [FEATURE-003](#feature-003-connection-leak-detection-sweep-job)   | 📋 Feature | Automatic stale connection cleanup     | Medium   | Easy       | Q1 2026  | 📋 Planned  |
+| [BE-001.3](#be-0013-distributed-locks-production-blocker)         | 🔴 Blocker | Editor locking (data loss prevention)  | Critical | High       | Week 3-4 | 🔄 Active   |
 
 **Legend**:
 
@@ -344,6 +345,53 @@ For timeline and milestones, see **[ROADMAP.md](./ROADMAP.md)**.
 
 **Last Updated**: November 16, 2025
 **Maintained By**: Development Team
+
+---
+
+---
+
+## 🔴 Critical Blockers (Production)
+
+### BE-001.3: Distributed Locks (Production Blocker)
+
+- **Status**: 🔄 **ACTIVE** (Week 3-4, November 18-December 1, 2025)
+- **Priority**: 🔴 **CRITICAL** (UI Team Blocker)
+- **Discovered**: 2025-11-16 (UI Team Validation)
+- **Epic**: [EPIC-001: WebSocket Gateway](./EPIC-001-websocket-gateway.md)
+- **Description**: Backend currently allows multiple editors in the same resource with no conflict detection or locking mechanism. High risk of data loss in production healthcare environment.
+- **Impact**:
+  - **UI Blocker**: Cannot release Phase 2 (Lock Status UI) or Phase 3 (Hierarchical Resources)
+  - **Production Risk**: Last-save-wins causes data loss when multiple staff edit same surgical documentation
+  - **Compliance**: HIPAA audit trail incomplete without lock tracking
+- **Real-World Scenario**:
+  ```plaintext
+  Dr. Smith (Surgeon): Opens operation report, edits diagnosis section
+  Nurse Jane (Assistant): Opens same operation report, edits diagnosis section
+  Both click Save → Last save wins → One person's changes lost
+  ```
+- **Required Solution**: Exclusive editor locking with TTL and auto-downgrade
+- **Implementation Plan**: See [BACKEND_RESPONSE_TO_UI_FEEDBACK.md](../BACKEND_RESPONSE_TO_UI_FEEDBACK.md)
+- **Deliverables**:
+  - [ ] **Phase 1 (Week 3)**: Basic locking - RedisLockService, WebSocket events, BDD tests (6 scenarios)
+  - [ ] **Phase 2 (Week 4)**: Hierarchical locking - Granular locks for tabs/sections (4 scenarios)
+  - [ ] **API Events**: `lock:acquired`, `lock:denied`, `lock:released`, `lock:expired`, `lock:auto_downgrade`
+  - [ ] **Lock TTL**: 5 minutes (configurable) with heartbeat renewal (60s)
+  - [ ] **Auto-downgrade**: Second editor joining is auto-downgraded to viewer
+  - [ ] **Hierarchical IDs**: `document:123/tab:patient-info` for granular locking
+- **Acceptance Criteria**:
+  - [x] UI Team feedback received and acknowledged
+  - [ ] Phase 1: Single-editor enforcement with Redis atomic operations (Nov 25)
+  - [ ] Phase 2: Multi-tab concurrent editing with independent locks (Dec 2)
+  - [ ] BDD tests: 10 scenarios passing (6 basic + 4 hierarchical)
+  - [ ] Documentation: Updated `UI_TEAM_WEBSOCKET_API.md` with lock events
+  - [ ] UI Team unblocked: Can proceed with Lock Status UI
+- **Timeline**:
+  - **ETA Phase 1**: November 25, 2025 (9 days)
+  - **ETA Phase 2**: December 2, 2025 (16 days)
+- **References**:
+  - UI Team feedback: Message dated November 16, 2025
+  - Backend response: `docs/BACKEND_RESPONSE_TO_UI_FEEDBACK.md`
+  - Epic: `docs/project/EPIC-001-websocket-gateway.md` (BE-001.3)
 
 ---
 
