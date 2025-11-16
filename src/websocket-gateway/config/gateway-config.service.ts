@@ -14,6 +14,10 @@ import { ConfigService } from '@nestjs/config';
  * - WEBSOCKET_PING_INTERVAL: Time between pings in ms (default: 25000)
  * - WEBSOCKET_PING_TIMEOUT: Pong timeout in ms (default: 20000)
  * - WEBSOCKET_MAX_CONNECTIONS_PER_USER: Max simultaneous connections per user (default: 5)
+ * - JWT_SECRET: JWT signing secret (required for RS256 algorithm)
+ * - JWT_ISSUER: JWT token issuer (default: collabornest)
+ * - JWT_AUDIENCE: JWT token audience (default: collabornest-api)
+ * - JWT_EXPIRES_IN: JWT token expiry (default: 1d)
  *
  * Usage:
  * ```typescript
@@ -213,6 +217,63 @@ export class WebSocketGatewayConfigService {
   }
 
   /**
+   * Get JWT secret for token validation
+   *
+   * JWT Authentication Configuration (BE-001.1).
+   * In production, use RS256 public key from Keycloak.
+   *
+   * @returns JWT secret string
+   * @throws Error if JWT_SECRET is not defined
+   */
+  getJwtSecret(): string {
+    const secret = this.configService.get<string>('JWT_SECRET');
+
+    if (!secret) {
+      throw new Error(
+        'JWT_SECRET is not defined. Required for WebSocket authentication.',
+      );
+    }
+
+    return secret;
+  }
+
+  /**
+   * Get JWT issuer claim validation value
+   *
+   * Validates the 'iss' claim in JWT tokens.
+   * Should match your authentication provider (e.g., Keycloak realm URL).
+   *
+   * @returns JWT issuer string (default: 'collabornest')
+   */
+  getJwtIssuer(): string {
+    return this.configService.get<string>('JWT_ISSUER', 'collabornest');
+  }
+
+  /**
+   * Get JWT audience claim validation value
+   *
+   * Validates the 'aud' claim in JWT tokens.
+   * Should match your application identifier.
+   *
+   * @returns JWT audience string (default: 'collabornest-api')
+   */
+  getJwtAudience(): string {
+    return this.configService.get<string>('JWT_AUDIENCE', 'collabornest-api');
+  }
+
+  /**
+   * Get JWT token expiry time
+   *
+   * Default expiry for generated test tokens.
+   * In production, expiry is controlled by Keycloak.
+   *
+   * @returns JWT expiry string (default: '1d' = 1 day)
+   */
+  getJwtExpiresIn(): string {
+    return this.configService.get<string>('JWT_EXPIRES_IN', '1d');
+  }
+
+  /**
    * Validate the current configuration
    *
    * Throws error if configuration is invalid.
@@ -229,6 +290,7 @@ export class WebSocketGatewayConfigService {
     this.validateTransports(errors);
     this.validatePingConfig(errors);
     this.validateMaxConnections(errors);
+    this.validateJwtConfig(errors);
 
     if (errors.length > 0) {
       const errorList = errors.map(e => `  - ${e}`).join('\n');
@@ -286,6 +348,24 @@ export class WebSocketGatewayConfigService {
       errors.push(
         `Invalid WEBSOCKET_MAX_CONNECTIONS_PER_USER: ${maxConnections} (must be >= 1)`,
       );
+    }
+  }
+
+  private validateJwtConfig(errors: string[]): void {
+    try {
+      this.getJwtSecret();
+    } catch (error) {
+      errors.push((error as Error).message);
+    }
+
+    const issuer = this.getJwtIssuer();
+    if (!issuer || issuer.trim().length === 0) {
+      errors.push('Invalid JWT_ISSUER: must be a non-empty string');
+    }
+
+    const audience = this.getJwtAudience();
+    if (!audience || audience.trim().length === 0) {
+      errors.push('Invalid JWT_AUDIENCE: must be a non-empty string');
     }
   }
 }
