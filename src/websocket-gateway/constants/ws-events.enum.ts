@@ -25,16 +25,18 @@ export enum WsEvent {
    */
   CONNECT_ERROR = 'connect_error', // Reserved by Socket.IO specification
 
-  // Room management events (BE-001.2)
-  JOIN_ROOM = 'JOIN_ROOM',
-  LEAVE_ROOM = 'LEAVE_ROOM',
-  ROOM_JOINED = 'ROOM_JOINED',
-  ROOM_LEFT = 'ROOM_LEFT',
+  // Resource room management events (BE-001.2 Presence Tracking)
+  RESOURCE_JOIN = 'resource:join', // Client → Server: Join resource room
+  RESOURCE_LEAVE = 'resource:leave', // Client → Server: Leave resource room
+  RESOURCE_JOINED = 'resource:joined', // Server → Client: Successfully joined
+  RESOURCE_LEFT = 'resource:left', // Server → Client: Successfully left
+  RESOURCE_GET_USERS = 'resource:get_users', // Client → Server: Request user list
+  RESOURCE_USERS = 'resource:users', // Server → Client: User list response
 
-  // Presence tracking events (BE-001.2)
-  USER_JOINED = 'USER_JOINED',
-  USER_LEFT = 'USER_LEFT',
-  PRESENCE_UPDATE = 'PRESENCE_UPDATE',
+  // Presence tracking broadcast events (BE-001.2)
+  USER_JOINED = 'user:joined', // Server → All clients: Someone joined
+  USER_LEFT = 'user:left', // Server → All clients: Someone left
+  PRESENCE_UPDATE = 'presence:update', // Server → All clients: Presence changed
 
   // Lock management events (BE-001.3)
   LOCK_ACQUIRED = 'LOCK_ACQUIRED',

@@ -4,6 +4,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
+  SubscribeMessage,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
@@ -15,6 +16,12 @@ import {
   WsErrorResponse,
   WsEvent,
 } from './constants';
+import {
+  JoinResourceDto,
+  ResourceJoinedDto,
+  ResourceUser,
+  ResourceUserDto,
+} from './dto/presence.dto';
 
 /**
  * Connection Information
@@ -115,6 +122,22 @@ export class WebSocketGateway
    * Used for max connections per user enforcement.
    */
   private readonly userConnections = new Map<string, Set<string>>();
+
+  /**
+   * Resource presence tracking: Map<resourceId, Map<socketId, ResourceUser>>
+   *
+   * Tracks users present in each resource room.
+   * - Outer Map: resourceId → users in that resource
+   * - Inner Map: socketId → ResourceUser details
+   *
+   * Used for:
+   * - Real-time presence list (who's viewing/editing)
+   * - Broadcast user:joined / user:left events
+   * - Cleanup on disconnect (remove user from all resources)
+   *
+   * BE-001.2: Presence Tracking & Resource Rooms
+   */
+  private readonly resourceUsers = new Map<string, Map<string, ResourceUser>>();
 
   constructor(
     private readonly config: WebSocketGatewayConfigService,
@@ -622,6 +645,197 @@ export class WebSocketGateway
       disconnectedCount: socketIds.length,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  // ==============================================================================
+  // BE-001.2: Presence Tracking & Resource Rooms
+  // ==============================================================================
+
+  /**
+   * Broadcast user:joined event to other users in resource
+   */
+  private broadcastUserJoined(
+    client: Socket,
+    resourceId: string,
+    resourceUser: ResourceUser,
+  ): void {
+    client.to(resourceId).emit(WsEvent.USER_JOINED, {
+      resourceId,
+      userId: resourceUser.userId,
+      username: resourceUser.username,
+      email: resourceUser.email,
+      socketId: client.id,
+      joinedAt: resourceUser.joinedAt,
+      mode: resourceUser.mode,
+    });
+  }
+
+  /**
+   * Add user to resource presence tracking
+   */
+  private addUserToResource(
+    resourceId: string,
+    client: Socket,
+    connInfo: ConnectionInfo,
+    mode: 'editor' | 'viewer',
+  ): ResourceUser {
+    const resourceUser: ResourceUser = {
+      userId: connInfo.userId,
+      username: connInfo.username,
+      email: connInfo.email,
+      socketId: client.id,
+      joinedAt: new Date().toISOString(),
+      mode,
+      lastActivityAt: new Date().toISOString(),
+    };
+
+    if (!this.resourceUsers.has(resourceId)) {
+      this.resourceUsers.set(resourceId, new Map());
+    }
+    this.resourceUsers.get(resourceId)!.set(client.id, resourceUser);
+
+    return resourceUser;
+  }
+
+  /**
+   * Get user list for resource (DTO format)
+   */
+  private getResourceUserList(resourceId: string): ResourceUserDto[] {
+    const resourceUsersMap = this.resourceUsers.get(resourceId);
+    if (!resourceUsersMap) return [];
+
+    return Array.from(resourceUsersMap.values()).map(u => ({
+      userId: u.userId,
+      username: u.username,
+      email: u.email,
+      socketId: u.socketId,
+      joinedAt: u.joinedAt,
+      mode: u.mode,
+    }));
+  }
+
+  /**
+   * Validate join resource request
+   * @returns Error response if invalid, undefined if valid
+   */
+  private validateJoinResourcePayload(
+    payload: JoinResourceDto,
+    connInfo: ConnectionInfo | undefined,
+  ): ResourceJoinedDto | undefined {
+    if (!connInfo) {
+      return {
+        resourceId: payload.resourceId,
+        userId: 'unknown',
+        success: false,
+        joinedAt: new Date().toISOString(),
+        users: [],
+        message: 'Connection not found in pool',
+      };
+    }
+
+    if (!payload.resourceId || !payload.mode) {
+      return {
+        resourceId: payload.resourceId || '',
+        userId: connInfo.userId,
+        success: false,
+        joinedAt: new Date().toISOString(),
+        users: [],
+        message: 'Missing resourceId or mode',
+      };
+    }
+
+    if (payload.mode !== 'editor' && payload.mode !== 'viewer') {
+      return {
+        resourceId: payload.resourceId,
+        userId: connInfo.userId,
+        success: false,
+        joinedAt: new Date().toISOString(),
+        users: [],
+        message: WsErrorMessage[WsErrorCode.INVALID_MODE],
+      };
+    }
+
+    return undefined; // Valid
+  }
+
+  /**
+   * Handle resource:join event (BE-001.2)
+   *
+   * User joins a resource room for collaboration.
+   * - Validates request payload
+   * - Joins Socket.IO room
+   * - Tracks user in presence Map
+   * - Broadcasts user:joined to other users in resource
+   * - Returns resource:joined with current user list
+   *
+   * @param client - Socket.IO client
+   * @param payload - Join resource request DTO
+   */
+  @SubscribeMessage(WsEvent.RESOURCE_JOIN)
+  async handleJoinResource(
+    client: Socket,
+    payload: JoinResourceDto,
+  ): Promise<{ event: string; data: ResourceJoinedDto }> {
+    const connInfo = this.connectionPool.get(client.id);
+
+    // Validate payload
+    const validationError = this.validateJoinResourcePayload(payload, connInfo);
+    if (validationError) {
+      return { event: WsEvent.RESOURCE_JOINED, data: validationError };
+    }
+
+    // Type guard: connInfo must be defined after validation
+    if (!connInfo) {
+      throw new Error('Connection info missing after validation');
+    }
+
+    const { resourceId, mode } = payload;
+
+    // Check if user already in resource
+    if (this.resourceUsers.get(resourceId)?.has(client.id)) {
+      const errorData: ResourceJoinedDto = {
+        resourceId,
+        userId: connInfo.userId,
+        success: false,
+        joinedAt: new Date().toISOString(),
+        users: this.getResourceUserList(resourceId),
+        message: WsErrorMessage[WsErrorCode.RESOURCE_ALREADY_JOINED],
+      };
+      return { event: WsEvent.RESOURCE_JOINED, data: errorData };
+    }
+
+    // Join Socket.IO room
+    await client.join(resourceId);
+
+    // Track user in presence Map
+    const resourceUser = this.addUserToResource(
+      resourceId,
+      client,
+      connInfo,
+      mode,
+    );
+
+    console.log('[DEBUG][WS][Gateway] User joined resource:', {
+      resourceId,
+      userId: connInfo.userId,
+      mode,
+      totalUsersInResource: this.resourceUsers.get(resourceId)!.size,
+    });
+
+    // Broadcast user:joined to OTHER users in resource
+    this.broadcastUserJoined(client, resourceId, resourceUser);
+
+    // Return resource:joined with current user list
+    return {
+      event: WsEvent.RESOURCE_JOINED,
+      data: {
+        resourceId,
+        userId: connInfo.userId,
+        success: true,
+        joinedAt: resourceUser.joinedAt,
+        users: this.getResourceUserList(resourceId),
+      },
+    };
   }
 
   /**

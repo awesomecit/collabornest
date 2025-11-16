@@ -43,6 +43,9 @@ export enum WsErrorCode {
   LOCK_CONFLICT = 'WS_4003',
   LOCK_NOT_OWNED = 'WS_4004',
   RESOURCE_NOT_FOUND = 'WS_4005',
+  RESOURCE_ALREADY_JOINED = 'WS_4006', // BE-001.2: Duplicate join attempt
+  RESOURCE_NOT_JOINED = 'WS_4007', // BE-001.2: Leave without join
+  INVALID_MODE = 'WS_4008', // BE-001.2: Invalid editor/viewer mode
 
   // Server errors (5000-5999)
   INTERNAL_SERVER_ERROR = 'WS_5001',
@@ -88,6 +91,12 @@ export const WsErrorMessage: Record<WsErrorCode, string> = {
   [WsErrorCode.LOCK_CONFLICT]: 'Resource is locked by another user.',
   [WsErrorCode.LOCK_NOT_OWNED]: 'You do not own this lock. Cannot release.',
   [WsErrorCode.RESOURCE_NOT_FOUND]: 'Resource not found.',
+  [WsErrorCode.RESOURCE_ALREADY_JOINED]:
+    'You have already joined this resource.',
+  [WsErrorCode.RESOURCE_NOT_JOINED]:
+    'You are not in this resource. Cannot leave.',
+  [WsErrorCode.INVALID_MODE]:
+    'Invalid collaboration mode. Must be "editor" or "viewer".',
 
   // Server errors
   [WsErrorCode.INTERNAL_SERVER_ERROR]:
