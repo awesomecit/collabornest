@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { WebSocketGateway } from './websocket-gateway.gateway';
-import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { JwtMockService } from './auth';
+import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { JwtConfigKey } from './constants';
+import { WebSocketGateway } from './websocket-gateway.gateway';
 
 /**
  * WebSocket Gateway Module

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { WebSocketConfigKey, JwtConfigKey } from '../constants';
+import { JwtConfigKey, WebSocketConfigKey } from '../constants';
 
 /**
  * WebSocket Gateway Configuration Service

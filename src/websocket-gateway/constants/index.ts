@@ -8,10 +8,10 @@
  * import { WsEvent, WsErrorCode, WebSocketConfigKey, JwtConfigKey } from './constants';
  * ```
  */
+export { JwtConfigKey, WebSocketConfigKey } from './config-keys.enum';
 export {
   WsErrorCode,
   WsErrorMessage,
   WsErrorResponse,
 } from './ws-error-codes.enum';
 export { WsEvent } from './ws-events.enum';
-export { WebSocketConfigKey, JwtConfigKey } from './config-keys.enum';

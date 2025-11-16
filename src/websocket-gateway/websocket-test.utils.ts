@@ -22,11 +22,11 @@
 
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { io, Socket } from 'socket.io-client';
 import * as jwt from 'jsonwebtoken';
+import { io, Socket } from 'socket.io-client';
+import { JwtMockService } from './auth/jwt-mock.service';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { WebSocketGateway } from './websocket-gateway.gateway';
-import { JwtMockService } from './auth/jwt-mock.service';
 
 /**
  * JWT Token Factory

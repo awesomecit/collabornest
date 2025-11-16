@@ -4,5 +4,5 @@
  * Exports JWT validation services and types.
  */
 
-export * from './jwt-payload.interface';
 export * from './jwt-mock.service';
+export * from './jwt-payload.interface';

@@ -650,45 +650,54 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
         });
       }, 10000);
 
-      it('should reject duplicate join attempt', async () => {
-        // GIVEN client already in resource
-        const client = await clientFactory.createAuthenticatedClient(
-          'user-duplicate-test',
-        );
+      it('should reject duplicate join attempt', done => {
+        let client: Socket;
 
-        // First join
-        await new Promise(resolve => {
-          client.emit(
-            'resource:join',
-            {
-              resourceId: 'resource:page:/patient/E2E-002',
-              resourceType: 'page',
-              mode: 'editor',
-            },
-            resolve,
+        const setupTest = async () => {
+          // GIVEN client already in resource
+          client = await clientFactory.createAuthenticatedClient(
+            'user-duplicate-test',
           );
+
+          // First join - setup listener with 'once' to avoid conflicts
+          const firstJoinPromise = new Promise<void>(resolve => {
+            client.once('resource:joined', (response: any) => {
+              console.log('[DEBUG][WS][E2E] First join response:', response);
+              expect(response.success).toBe(true);
+              resolve();
+            });
+          });
+
+          client.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-002',
+            resourceType: 'page',
+            mode: 'editor',
+          });
+
+          await firstJoinPromise;
+
+          // WHEN try to join same resource again - setup listener for error
+          client.once('resource:joined', (response: any) => {
+            console.log('[DEBUG][WS][E2E] Duplicate join response:', response);
+
+            // THEN should receive error
+            expect(response.success).toBe(false);
+            expect(response.message).toContain('already joined');
+
+            client.disconnect();
+            done();
+          });
+
+          client.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-002',
+            resourceType: 'page',
+            mode: 'viewer',
+          });
+        };
+
+        setupTest().catch(error => {
+          done.fail(`Test setup failed: ${error.message}`);
         });
-
-        // WHEN try to join same resource again
-        const response: any = await new Promise(resolve => {
-          client.emit(
-            'resource:join',
-            {
-              resourceId: 'resource:page:/patient/E2E-002',
-              resourceType: 'page',
-              mode: 'viewer',
-            },
-            resolve,
-          );
-        });
-
-        console.log('[DEBUG][WS][E2E] Duplicate join response:', response);
-
-        // THEN should receive error
-        expect(response.data.success).toBe(false);
-        expect(response.data.message).toContain('already joined');
-
-        client.disconnect();
       }, 10000);
     });
 
@@ -704,21 +713,22 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
 
           console.log('[DEBUG][WS][E2E] Client 1 connected');
 
-          // First user joins resource
-          const joinResponse: any = await new Promise(resolve => {
-            client1.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-003',
-                resourceType: 'page',
-                mode: 'editor',
-              },
-              resolve,
-            );
+          // First user joins resource - setup listener
+          const firstJoinPromise = new Promise<void>(resolve => {
+            client1.on('resource:joined', (response: any) => {
+              console.log('[DEBUG][WS][E2E] Client 1 join response:', response);
+              expect(response.success).toBe(true);
+              resolve();
+            });
           });
 
-          console.log('[DEBUG][WS][E2E] Client 1 join response:', joinResponse);
-          expect(joinResponse.data.success).toBe(true);
+          client1.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-003',
+            resourceType: 'page',
+            mode: 'editor',
+          });
+
+          await firstJoinPromise;
 
           // Setup listener for user:joined broadcast
           client1.on('user:joined', (notification: any) => {
@@ -746,24 +756,18 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
 
           console.log('[DEBUG][WS][E2E] Client 2 connected');
 
-          const join2Response: any = await new Promise(resolve => {
-            client2.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-003',
-                resourceType: 'page',
-                mode: 'viewer',
-              },
-              resolve,
-            );
+          // Setup listener for client2 join response
+          client2.on('resource:joined', (response: any) => {
+            console.log('[DEBUG][WS][E2E] Client 2 join response:', response);
+            expect(response.success).toBe(true);
+            expect(response.users).toHaveLength(2);
           });
 
-          console.log(
-            '[DEBUG][WS][E2E] Client 2 join response:',
-            join2Response,
-          );
-          expect(join2Response.data.success).toBe(true);
-          expect(join2Response.data.users).toHaveLength(2);
+          client2.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-003',
+            resourceType: 'page',
+            mode: 'viewer',
+          });
         };
 
         setupTest().catch(error => {
@@ -784,31 +788,34 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
           client2 =
             await clientFactory.createAuthenticatedClient('user-leave-2');
 
-          await new Promise(resolve => {
-            client1.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-004',
-                resourceType: 'page',
-                mode: 'editor',
-              },
-              resolve,
-            );
+          // Client 1 joins - setup listener
+          const join1Promise = new Promise<void>(resolve => {
+            client1.on('resource:joined', () => resolve());
           });
 
-          const join2Response: any = await new Promise(resolve => {
-            client2.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-004',
-                resourceType: 'page',
-                mode: 'viewer',
-              },
-              resolve,
-            );
+          client1.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-004',
+            resourceType: 'page',
+            mode: 'editor',
           });
 
-          expect(join2Response.data.users).toHaveLength(2);
+          await join1Promise;
+
+          // Client 2 joins - setup listener
+          const join2Promise = new Promise<any>(resolve => {
+            client2.on('resource:joined', (response: any) => {
+              expect(response.users).toHaveLength(2);
+              resolve(response);
+            });
+          });
+
+          client2.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-004',
+            resourceType: 'page',
+            mode: 'viewer',
+          });
+
+          await join2Promise;
 
           // Setup listener for user:left broadcast
           client2.on('user:left', (notification: any) => {
@@ -828,25 +835,18 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
             done();
           });
 
-          // WHEN first user leaves
-          const leaveResponse: any = await new Promise(resolve => {
-            client1.emit(
-              'resource:leave',
-              {
-                resourceId: 'resource:page:/patient/E2E-004',
-              },
-              resolve,
-            );
+          // WHEN first user leaves - setup listener
+          client1.on('resource:left', (response: any) => {
+            console.log('[DEBUG][WS][E2E] Leave response:', response);
+
+            // THEN should receive success
+            expect(response.success).toBe(true);
+            expect(response.resourceId).toBe('resource:page:/patient/E2E-004');
           });
 
-          console.log('[DEBUG][WS][E2E] Leave response:', leaveResponse);
-
-          // THEN should receive success
-          expect(leaveResponse.event).toBe('resource:left');
-          expect(leaveResponse.data.success).toBe(true);
-          expect(leaveResponse.data.resourceId).toBe(
-            'resource:page:/patient/E2E-004',
-          );
+          client1.emit('resource:leave', {
+            resourceId: 'resource:page:/patient/E2E-004',
+          });
         };
 
         setupTest().catch(error => {
@@ -854,29 +854,38 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
         });
       }, 15000);
 
-      it('should reject leave if user not in resource', async () => {
-        // GIVEN client not in resource
-        const client =
-          await clientFactory.createAuthenticatedClient('user-not-joined');
+      it('should reject leave if user not in resource', done => {
+        let client: Socket;
 
-        // WHEN try to leave without joining
-        const response: any = await new Promise(resolve => {
-          client.emit(
-            'resource:leave',
-            {
-              resourceId: 'resource:page:/patient/E2E-005',
-            },
-            resolve,
-          );
+        const setupTest = async () => {
+          // GIVEN client not in resource
+          client =
+            await clientFactory.createAuthenticatedClient('user-not-joined');
+
+          // Setup listener for error response
+          client.on('resource:left', (response: any) => {
+            console.log(
+              '[DEBUG][WS][E2E] Leave without join response:',
+              response,
+            );
+
+            // THEN should receive error
+            expect(response.success).toBe(false);
+            expect(response.message).toContain('not in this resource');
+
+            client.disconnect();
+            done();
+          });
+
+          // WHEN try to leave without joining
+          client.emit('resource:leave', {
+            resourceId: 'resource:page:/patient/E2E-005',
+          });
+        };
+
+        setupTest().catch(error => {
+          done.fail(`Test setup failed: ${error.message}`);
         });
-
-        console.log('[DEBUG][WS][E2E] Leave without join response:', response);
-
-        // THEN should receive error
-        expect(response.data.success).toBe(false);
-        expect(response.data.message).toContain('not in this resource');
-
-        client.disconnect();
       }, 10000);
     });
 
@@ -895,55 +904,61 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
           client2 =
             await clientFactory.createAuthenticatedClient('user-watcher');
 
-          // Client 1 joins two resources
-          await new Promise(resolve => {
-            client1.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-006',
-                resourceType: 'page',
-                mode: 'editor',
-              },
-              resolve,
-            );
+          // Client 1 joins two resources - setup listeners
+          const join1Promise = new Promise<void>(resolve => {
+            client1.on('resource:joined', () => resolve());
           });
 
-          await new Promise(resolve => {
-            client1.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-007',
-                resourceType: 'page',
-                mode: 'editor',
-              },
-              resolve,
-            );
+          client1.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-006',
+            resourceType: 'page',
+            mode: 'editor',
           });
 
-          // Client 2 joins both resources to watch
-          await new Promise(resolve => {
-            client2.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-006',
-                resourceType: 'page',
-                mode: 'viewer',
-              },
-              resolve,
-            );
+          await join1Promise;
+
+          // Remove previous listener to avoid conflicts
+          client1.removeAllListeners('resource:joined');
+
+          const join2Promise = new Promise<void>(resolve => {
+            client1.on('resource:joined', () => resolve());
           });
 
-          await new Promise(resolve => {
-            client2.emit(
-              'resource:join',
-              {
-                resourceId: 'resource:page:/patient/E2E-007',
-                resourceType: 'page',
-                mode: 'viewer',
-              },
-              resolve,
-            );
+          client1.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-007',
+            resourceType: 'page',
+            mode: 'editor',
           });
+
+          await join2Promise;
+
+          // Client 2 joins both resources to watch - setup listeners
+          const join3Promise = new Promise<void>(resolve => {
+            client2.on('resource:joined', () => resolve());
+          });
+
+          client2.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-006',
+            resourceType: 'page',
+            mode: 'viewer',
+          });
+
+          await join3Promise;
+
+          // Remove previous listener to avoid conflicts
+          client2.removeAllListeners('resource:joined');
+
+          const join4Promise = new Promise<void>(resolve => {
+            client2.on('resource:joined', () => resolve());
+          });
+
+          client2.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-007',
+            resourceType: 'page',
+            mode: 'viewer',
+          });
+
+          await join4Promise;
 
           console.log('[DEBUG][WS][E2E] Both users joined both resources');
 

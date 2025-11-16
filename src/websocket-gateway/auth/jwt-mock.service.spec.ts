@@ -1,10 +1,10 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import { JwtModule } from '@nestjs/jwt';
+import { Test, TestingModule } from '@nestjs/testing';
 import * as jwt from 'jsonwebtoken';
 import { WebSocketGatewayConfigService } from '../config/gateway-config.service';
-import { JwtMockService } from './jwt-mock.service';
 import { JWTTokenFactory } from '../websocket-test.utils';
+import { JwtMockService } from './jwt-mock.service';
 
 describe('JwtMockService', () => {
   let service: JwtMockService;

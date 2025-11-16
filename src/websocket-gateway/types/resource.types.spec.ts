@@ -1,9 +1,8 @@
 import {
-  parseResourceId,
   buildResourceId,
-  isSubResource,
   getParentResourceId,
-  ResourceId,
+  isSubResource,
+  parseResourceId,
 } from './resource.types';
 
 describe('Resource Type System', () => {
