@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-11-16
+
+### Fixed
+
+- ESLint configuration moved to root directory for proper detection
+- ESLint parsing errors in test files resolved
+- Scripts directory now properly linted
+
+### Changed
+
+- Applied Prettier formatting to `scripts/check-secrets.js`
+- Applied Prettier formatting to `docs/KNOWN_VULNERABILITIES.md`
+- Cleaned up trailing whitespaces and blank lines
+
 ## [0.2.0] - 2025-11-16
 
 ### Added
