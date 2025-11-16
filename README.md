@@ -1,8 +1,25 @@
 # CollaborNest — Real-Time Collaboration System for Healthcare
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/collabornest/ci.yml?branch=main)](https://github.com/your-org/collabornest/actions)
+[![Issues](https://img.shields.io/github/issues/your-org/collabornest)](https://github.com/your-org/collabornest/issues)
+[![Good First Issues](https://img.shields.io/github/issues/your-org/collabornest/good%20first%20issue?color=7057ff)](https://github.com/your-org/collabornest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+
 **CollaborNest** is an open-source real-time collaboration platform designed for healthcare applications. Transform any web application into a collaborative system with **zero code changes** using our JavaScript widget.
 
-> **Status**: 🚧 Active Development | **Version**: 0.2.0 | **Target**: Production Q2 2025
+> **Status**: 🚧 Active Development | **Version**: 0.2.1 | **Target**: Production Q2 2026
+
+---
+
+## 📚 Documentation
+
+- **[Quickstart Guide](./docs/QUICKSTART.md)** - 15-minute tutorial to get started
+- **[Project Roadmap](./docs/project/ROADMAP.md)** - Development timeline and milestones
+- **[Complete Specification](./docs/PROJECT.md)** - Full technical architecture (2000+ lines)
+- **[Contributing Guide](./CONTRIBUTING.md)** - How to contribute to the project
+- **[Security Policy](./SECURITY.md)** - Vulnerability reporting and security practices
+
+---
 
 ## ✨ Features
 
@@ -371,12 +388,94 @@ npm run verify:security      # Full security verification (tests + scans)
 - ✅ **Audit Logging** - Complete event trail (NDJSON format)
 - ✅ **HIPAA/GDPR Compliance** - Healthcare data protection standards
 
-## 📄 License
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+### Quick Start for Contributors
+
+1. **Find a Task**: Browse [open issues](https://github.com/your-org/collabornest/issues) with `good first issue` or `help wanted` labels
+2. **Read the Epic**: Understand context in `/docs/project/EPIC-XXX.md`
+3. **Check Roadmap**: See [ROADMAP.md](./docs/project/ROADMAP.md) for current priorities
+4. **Follow Workflow**: Read [CONTRIBUTING.md](./CONTRIBUTING.md) for development process
+
+### Current Priorities (November 2025)
+
+| Epic                                                      | Description                      | Status         | Help Wanted         |
+| --------------------------------------------------------- | -------------------------------- | -------------- | ------------------- |
+| [BE-001](./docs/project/EPIC-001-websocket-gateway.md)    | WebSocket Gateway Implementation | 🔄 In Progress | Backend developers  |
+| [FE-001](./docs/project/EPIC-002-collaboration-widget.md) | Collaboration Widget SDK         | 📋 Planned     | Frontend developers |
+| [DEVOPS-001](./docs/project/EPIC-003-production-infra.md) | Production Infrastructure        | � Planned      | DevOps engineers    |
+
+### Good First Issues
+
+Perfect for first-time contributors:
+
+- [Browse good first issues](https://github.com/your-org/collabornest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- [Browse help wanted issues](https://github.com/your-org/collabornest/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+
+### Development Workflow
+
+```bash
+# 1. Fork and clone
+git clone https://github.com/your-username/collabornest.git
+
+# 2. Create feature branch
+git checkout -b feature/your-feature
+
+# 3. Make changes following TDD
+npm run test:watch
+
+# 4. Verify quality
+npm run verify
+
+# 5. Commit with conventional commits
+git commit -m "feat(component): add feature description"
+
+# 6. Push and create PR
+git push -u origin feature/your-feature
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines on:
+
+- Commit message conventions
+- Testing requirements
+- Code quality standards
+- Pull request process
+- How to pick a task (GitHub Issues → Epic → Story → Task)
+
+---
+
+## 📚 Project Navigation
+
+### For Users
+
+- **[Quickstart Guide](./docs/QUICKSTART.md)** - Get up and running in 15 minutes
+- **[Complete Specification](./docs/PROJECT.md)** - Full technical architecture with BDD scenarios and diagrams
+
+### For Contributors
+
+- **[Roadmap](./docs/project/ROADMAP.md)** - Development timeline and milestones
+- **[Backlog](./docs/project/BACKLOG.md)** - Current bugs, improvements, and planned work
+- **[Epic 001: WebSocket Gateway](./docs/project/EPIC-001-websocket-gateway.md)** - Backend collaboration engine
+- **[Epic 002: Widget SDK](./docs/project/EPIC-002-collaboration-widget.md)** - Frontend integration widget
+- **[Epic 003: Infrastructure](./docs/project/EPIC-003-production-infra.md)** - DevOps and deployment
+- **[Contributing Guide](./CONTRIBUTING.md)** - Development workflow and task selection
+
+### For Maintainers
+
+- **[Security Policy](./SECURITY.md)** - Vulnerability reporting and security practices
+- **[Code of Conduct](./CODE_OF_CONDUCT.md)** - Community guidelines
+- **[Changelog](./CHANGELOG.md)** - Version history and release notes
+
+---
+
+## �📄 License
 
 MIT License - see [LICENSE](./LICENSE) file for details.
 
 ---
 
-**Built with ❤️ for Healthcare Collaboration**
-**Maintainer**: Antonio
+**Built with ❤️ for Healthcare Collaboration**  
+**Maintainer**: Antonio (<aqwesome.cit.dev@gmail.com>)  
 **Last Updated**: November 16, 2025

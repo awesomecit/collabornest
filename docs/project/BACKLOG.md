@@ -1,28 +1,36 @@
 # Project Backlog
 
-> **Note**: This file tracks bugs, improvements, and future work discovered during development.
-> Items here should eventually move to GitHub Issues or be converted to TASK-XXX.md files.
+> **Note**: This file tracks bugs, improvements, and future work discovered during development.  
+> For Epic/Story/Task planning, see:
+>
+> - **[ROADMAP.md](./ROADMAP.md)** - Development timeline and milestones
+> - **[EPIC-001](./EPIC-001-websocket-gateway.md)** - WebSocket Gateway Implementation
+> - **[EPIC-002](./EPIC-002-collaboration-widget.md)** - Collaboration Widget SDK
+> - **[EPIC-003](./EPIC-003-production-infra.md)** - Production Infrastructure
+>
+> For new work, create GitHub Issues using [templates](../../.github/ISSUE_TEMPLATE/).
+
+---
 
 ## 📊 Quick Overview
 
-| ID | Type | Title | Priority | Difficulty | Due Date | Status |
-|----|------|-------|----------|------------|----------|--------|
-| [BUG-001](#bug-001-auto-releasejs-dry-run-modifies-files) | 🐛 Bug | auto-release.js dry-run modifies files | Medium | Easy | - | ✅ RESOLVED |
-| [DEBT-001](#debt-001-missing-docsproject-structure) | 🔧 Debt | Missing /docs/project structure | Low | Easy | Q4 2025 | 🔄 In Progress |
-| [IMPROVE-001](#improve-001-add-changelogmd-generation) | 💡 Improve | Add CHANGELOG.md generation | Medium | Medium | Q1 2026 | 📋 Planned |
-| [IMPROVE-002](#improve-002-cicd-github-actions-activation) | 💡 Improve | CI/CD GitHub Actions activation | High | Easy | Q1 2026 | ⏸️ Blocked |
-| [FEATURE-001](#feature-001-integration-test-docker-orchestration) | 📋 Feature | Integration test Docker orchestration | Low | Medium | Q2 2026 | 📋 Planned |
-| [FEATURE-002](#feature-002-e2e-test-coverage-reporting) | 📋 Feature | E2E test coverage reporting | Low | Easy | Q2 2026 | 📋 Planned |
-| [HUSKY-001](#husky-001-husky-v10-compatibility-deprecated-lines) | 🛠️ Compat | Husky v10 compatibility | Low | Easy | Q1 2026 | 📋 Open |
-| [BE-001](#be-001-websocket-gateway-implementation) | 🚀 Epic | WebSocket Gateway Implementation | Critical | High | Week 8 | 🔄 In Progress |
-| [FE-001](#fe-001-collaboration-widget-sdk) | 🚀 Epic | Collaboration Widget SDK | High | High | Week 13 | 📋 Planned |
-| [DEVOPS-001](#devops-001-production-infrastructure) | 🚀 Epic | Production Infrastructure | High | Medium | Week 16 | 📋 Planned |
+| ID                                                                | Type       | Title                                  | Priority | Difficulty | Due Date | Status      |
+| ----------------------------------------------------------------- | ---------- | -------------------------------------- | -------- | ---------- | -------- | ----------- |
+| [BUG-001](#bug-001-auto-releasejs-dry-run-modifies-files)         | 🐛 Bug     | auto-release.js dry-run modifies files | Medium   | Easy       | -        | ✅ RESOLVED |
+| [DEBT-001](#debt-001-missing-docsproject-structure)               | 🔧 Debt    | Missing /docs/project structure        | Low      | Easy       | Q4 2025  | ✅ RESOLVED |
+| [IMPROVE-001](#improve-001-add-changelogmd-generation)            | 💡 Improve | Add CHANGELOG.md generation            | Medium   | Medium     | Q1 2026  | ✅ RESOLVED |
+| [IMPROVE-002](#improve-002-cicd-github-actions-activation)        | 💡 Improve | CI/CD GitHub Actions activation        | High     | Easy       | Q1 2026  | ⏸️ Blocked  |
+| [FEATURE-001](#feature-001-integration-test-docker-orchestration) | 📋 Feature | Integration test Docker orchestration  | Low      | Medium     | Q2 2026  | 📋 Planned  |
+| [FEATURE-002](#feature-002-e2e-test-coverage-reporting)           | 📋 Feature | E2E test coverage reporting            | Low      | Easy       | Q2 2026  | 📋 Planned  |
+| [HUSKY-001](#husky-001-husky-v10-compatibility-deprecated-lines)  | 🛠️ Compat  | Husky v10 compatibility                | Low      | Easy       | Q1 2026  | 📋 Open     |
 
 **Legend**:
 
 - Status: ✅ Resolved | 🔄 In Progress | 📋 Planned | ⏸️ Blocked | 📝 Open
 - Priority: Critical | High | Medium | Low
 - Difficulty: Easy | Medium | Hard
+
+---
 
 ## 🐛 Bugs
 
@@ -42,38 +50,38 @@
 
 ### DEBT-001: Missing /docs/project structure
 
-- **Status**: In Progress
+- **Status**: ✅ **RESOLVED** (v0.2.1)
 - **Priority**: Low
-- **Description**: Project lacks formal documentation structure per copilot-instructions
-- **Required Structure**:
+- **Resolved**: 2025-11-16
+- **Description**: Project lacked formal documentation structure per copilot-instructions
+- **Solution Implemented**:
+  - Created `/docs/project/ROADMAP.md` - Development timeline
+  - Created `/docs/project/EPIC-001-websocket-gateway.md` - Backend Epic
+  - Created `/docs/project/EPIC-002-collaboration-widget.md` - Frontend Epic
+  - Created `/docs/project/EPIC-003-production-infra.md` - DevOps Epic
+  - Created `.github/ISSUE_TEMPLATE/` - Bug report, feature request, task templates
+  - Updated `CONTRIBUTING.md` with "How to Pick a Task" section
+  - Updated `README.md` with badges and project navigation
+- **Commit**: Included in v0.2.1+ release
 
-  ```text
-  /docs/
-  ├── dev/           # .gitignored, agent session notes
-  └── project/       # Version controlled
-      ├── ROADMAP.md
-      ├── BACKLOG.md (this file)
-      ├── EPIC-XXX.md
-      ├── STORY-XXX.md
-      └── TASK-XXX.md
-  ```
+---
 
 ## 💡 Improvements
 
 ### IMPROVE-001: Add CHANGELOG.md generation
 
-- **Status**: Not Started
+- **Status**: ✅ **RESOLVED** (v0.2.0)
 - **Priority**: Medium
-- **Description**: auto-release.js references changelog generation but CHANGELOG.md doesn't exist
-- **Details**:
-  - Script says "Would execute: npm run release:changelog"
-  - No `release:changelog` script in package.json
-  - Need conventional-changelog integration
-- **Acceptance Criteria**:
-  - [ ] Add CHANGELOG.md template
-  - [ ] Create `release:changelog` script
-  - [ ] Integrate with auto-release.js
-  - [ ] Follow Keep a Changelog format
+- **Resolved**: 2025-11-15
+- **Description**: auto-release.js referenced changelog generation but CHANGELOG.md didn't exist
+- **Solution Implemented**:
+  - Created `CHANGELOG.md` following Keep a Changelog format
+  - Added manual changelog update process in release workflow
+  - Documented in CONTRIBUTING.md
+- **Commit**: Included in v0.2.0 release
+- **Note**: Automatic generation via conventional-changelog deferred to Q1 2026
+
+---
 
 ### IMPROVE-002: CI/CD GitHub Actions activation
 
@@ -103,105 +111,32 @@
 - **Priority**: Low
 - **Description**: E2E tests don't generate coverage reports (by design, but could be optional)
 
-## 🎯 Major Epics (From PROJECT.md)
-
-### BE-001: WebSocket Gateway Implementation
-
-- **Status**: 🔄 In Progress
-- **Priority**: Critical
-- **Difficulty**: High
-- **Timeline**: Weeks 1-8 (Started)
-- **Team**: 2 backend developers
-- **Description**: Core WebSocket Gateway with Y.js CRDT, presence tracking, distributed locks, and audit logging.
-
-**User Stories**:
-
-- [ ] BE-001.1: WebSocket Connection Management (Week 1-2)
-- [ ] BE-001.2: Presence Tracking & Resource Rooms (Week 2-3)
-- [ ] BE-001.3: Distributed Lock Management (Week 3-4)
-- [ ] BE-001.4: Y.js CRDT Integration (Week 4-6)
-- [ ] BE-001.5: RabbitMQ Event Broadcasting (Week 5-6)
-- [ ] BE-001.6: PostgreSQL Audit Logging (Week 6-7)
-- [ ] BE-001.7: Error Handling & Recovery (Week 7-8)
-- [ ] BE-001.8: Performance Optimization & Load Testing (Week 8)
-
-**Success Criteria**:
-
-- [ ] WebSocket connection with JWT auth
-- [ ] Real-time presence tracking (join/leave events)
-- [ ] Redis-backed distributed locks (< 5ms latency)
-- [ ] Y.js document synchronization
-- [ ] RabbitMQ event broadcasting
-- [ ] NDJSON audit logs with 10-year retention
-- [ ] Load test: 500+ concurrent users with < 200ms P99 latency
-
 ---
 
-### FE-001: Collaboration Widget SDK
+## 🎯 Epic References
 
-- **Status**: 📋 Planned
-- **Priority**: High
-- **Difficulty**: High
-- **Timeline**: Weeks 9-13
-- **Team**: 1 frontend developer
-- **Description**: JavaScript widget for zero-code integration with existing healthcare apps.
+> **Note**: Epic details have been moved to dedicated files for better organization.
 
-**User Stories**:
+### Active Epics
 
-- [ ] FE-001.1: Widget Auto-Discovery & Initialization (Week 9-10)
-- [ ] FE-001.2: Real-time Collaboration UI (Week 10-11)
-- [ ] FE-001.3: Offline Support & Queue Management (Week 11-12)
-- [ ] FE-001.4: CDN Distribution & Versioning (Week 12-13)
-- [ ] FE-001.5: Integration Testing & Documentation (Week 13)
+- **[BE-001: WebSocket Gateway Implementation](./EPIC-001-websocket-gateway.md)** - Status: 🔄 In Progress (Weeks 1-8)
+- **[FE-001: Collaboration Widget SDK](./EPIC-002-collaboration-widget.md)** - Status: 📋 Planned (Weeks 9-13)
+- **[DEVOPS-001: Production Infrastructure](./EPIC-003-production-infra.md)** - Status: 📋 Planned (Weeks 14-16)
 
-**Success Criteria**:
+For detailed user stories, acceptance criteria, and BDD scenarios, see individual Epic files.
 
-- [ ] < 2 lines of code integration
-- [ ] Auto-detect input fields (text, textarea, contenteditable)
-- [ ] Real-time presence UI (avatars, cursors)
-- [ ] Offline editing with sync queue
-- [ ] Widget bundle < 150KB gzipped
-- [ ] CDN deployment with semver
-- [ ] Example apps (React, Vue, Angular, Vanilla JS)
-
----
-
-### DEVOPS-001: Production Infrastructure
-
-- **Status**: 📋 Planned
-- **Priority**: High
-- **Difficulty**: Medium
-- **Timeline**: Weeks 14-16
-- **Team**: 1 DevOps engineer + 1 backend developer
-- **Description**: Production-ready infrastructure with monitoring, CI/CD, and disaster recovery.
-
-**Tasks**:
-
-- [ ] DEVOPS-001.1: Terraform Infrastructure as Code (Week 14)
-- [ ] DEVOPS-001.2: Blue-Green Deployment Pipeline (Week 14)
-- [ ] DEVOPS-001.3: Prometheus + Grafana Monitoring (Week 15)
-- [ ] DEVOPS-001.4: Load Testing with Artillery (Week 15)
-- [ ] DEVOPS-001.5: Disaster Recovery Plan & Backups (Week 16)
-- [ ] DEVOPS-001.6: Security Hardening & SSL (Week 16)
-
-**Success Criteria**:
-
-- [ ] Terraform scripts for AWS/GCP deployment
-- [ ] CI/CD with GitHub Actions (test → build → deploy)
-- [ ] Blue-Green deployment with zero downtime
-- [ ] Monitoring dashboards (latency, errors, throughput)
-- [ ] Load test: 1000+ concurrent users
-- [ ] Automated backups (PostgreSQL daily, Redis snapshots)
-- [ ] Security audit passed (SSL, HIPAA compliance)
+For timeline and milestones, see **[ROADMAP.md](./ROADMAP.md)**.
 
 ---
 
 ## 🎯 Roadmap Items (Future)
 
+> **Note**: Detailed quarterly roadmap with timeline is in **[ROADMAP.md](./ROADMAP.md)**
+
 ### Q1 2026
 
-- [ ] Add CHANGELOG.md generation (IMPROVE-001)
-- [ ] Activate CI/CD GitHub Actions (IMPROVE-002)
+- [ ] ~~Add CHANGELOG.md generation (IMPROVE-001)~~ ✅ Completed in v0.2.0
+- [ ] Activate CI/CD GitHub Actions (IMPROVE-002) - Blocked: no GitHub credits
 - [ ] Husky v10 migration (HUSKY-001)
 - [ ] Security scanning integration (Snyk, Dependabot)
 
@@ -225,6 +160,8 @@
 - [ ] Historical playback of collaboration sessions
 - [ ] Advanced analytics and reporting
 - [ ] Compliance certifications (HIPAA, SOC 2)
+
+---
 
 ## 🛠️ Compatibility / Deprecations
 
@@ -256,5 +193,19 @@
 
 ---
 
-**Last Updated**: 2025-11-15
+**Last Updated**: November 16, 2025  
 **Maintained By**: Development Team
+
+---
+
+## 📝 How to Use This File
+
+**For Bugs/Issues**: Create GitHub Issue using [bug report template](../../.github/ISSUE_TEMPLATE/bug_report.md)
+
+**For Features**: Create GitHub Issue using [feature request template](../../.github/ISSUE_TEMPLATE/feature_request.md)
+
+**For Tasks**: Create GitHub Issue using [task template](../../.github/ISSUE_TEMPLATE/task.md)
+
+**For Epic Planning**: See dedicated Epic files (EPIC-001.md, EPIC-002.md, EPIC-003.md)
+
+**For Timeline**: See [ROADMAP.md](./ROADMAP.md)

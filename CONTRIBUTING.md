@@ -584,12 +584,163 @@ git tag -a v1.0.0 -m "Release v1.0.0"
 git push --tags
 ```
 
+## How to Pick a Task
+
+We follow a **GitHub Issues → Epic → Story → Task** workflow:
+
+### For New Contributors
+
+1. **Browse GitHub Issues**
+
+   ```bash
+   # Look for beginner-friendly tasks
+   https://github.com/your-org/collabornest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22
+   ```
+
+   Labels to look for:
+   - `good first issue` - Perfect for first-time contributors
+   - `help wanted` - Contributions welcome
+   - `bug` - Something broken that needs fixing
+   - `enhancement` - New feature or improvement
+
+2. **Understand the Context**
+   - **Epic files**: Read the relevant Epic (e.g., `EPIC-001-websocket-gateway.md`)
+   - **ROADMAP**: Check `/docs/project/ROADMAP.md` for current priorities
+   - **PROJECT.md**: See `/docs/PROJECT.md` for complete technical specification
+
+3. **Comment on the Issue**
+
+   ```markdown
+   Hi! I'd like to work on this. I have experience with [relevant skills].
+   Could you assign this to me?
+
+   Questions:
+
+   - [Any clarifications needed]
+   ```
+
+4. **Get Assignment**
+   - Maintainer will assign the issue to you
+   - Read acceptance criteria carefully
+   - Ask questions if anything is unclear
+
+5. **Create Branch**
+
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/issue-123-description
+   ```
+
+6. **Work on Task** (following TDD workflow)
+
+   ```bash
+   # Write test first
+   npm run test:watch
+
+   # Implement code
+   # Refactor while keeping tests green
+
+   # Verify quality
+   npm run verify
+   ```
+
+7. **Submit Pull Request**
+   - Fill PR template completely
+   - Reference issue: `Closes #123`
+   - Request review from maintainer
+
+### For Regular Contributors
+
+**Understanding the Epic Hierarchy**:
+
+```
+EPIC (large feature, 2-8 weeks)
+  └── STORY (user-facing functionality, 1-5 days)
+      └── TASK (implementation work, 2-8 hours)
+```
+
+**Example**:
+
+- **Epic**: BE-001 (WebSocket Gateway Implementation) - 8 weeks
+  - **Story**: BE-001.1 (WebSocket Connection Management) - 1-2 weeks
+    - **Task**: Implement JWT validation - 4 hours
+    - **Task**: Add heartbeat mechanism - 3 hours
+    - **Task**: Write integration tests - 5 hours
+
+**Task Selection Process**:
+
+1. **Check ROADMAP.md** - What's the current priority?
+2. **Check BACKLOG.md** - What issues are ready to work on?
+3. **Pick a task that matches**:
+   - Your skill level (difficulty rating)
+   - Time available (time-box estimate)
+   - Current sprint priorities
+
+**Time-boxing Rules (XP)**:
+
+- **Task**: Max 2 days (if longer, break it down)
+- **Story**: Max 1 week
+- **Epic**: Max 8 weeks
+
+If you can't complete in time-box, **split the task** and create a follow-up issue.
+
+### Task Labels Explained
+
+| Label              | Meaning                            | Typical Contributor          |
+| ------------------ | ---------------------------------- | ---------------------------- |
+| `good first issue` | Beginner-friendly, well-documented | New contributors             |
+| `help wanted`      | Contributions welcome              | Anyone                       |
+| `epic`             | Large multi-story feature          | Team coordination            |
+| `story`            | User-facing functionality          | Experienced contributors     |
+| `task`             | Implementation work                | Anyone assigned              |
+| `bug`              | Something broken                   | Anyone with debugging skills |
+| `enhancement`      | New feature                        | Feature developers           |
+| `documentation`    | Docs only                          | Writers, reviewers           |
+| `testing`          | Test additions                     | QA, developers               |
+
+### Finding Your First Task
+
+**If you're new to the project**:
+
+```bash
+# Step 1: Read the quickstart
+cat docs/QUICKSTART.md
+
+# Step 2: Setup development environment
+npm install
+npm run verify
+
+# Step 3: Pick a "good first issue"
+# Browse: https://github.com/your-org/collabornest/labels/good%20first%20issue
+
+# Step 4: Read related Epic
+cat docs/project/EPIC-001-websocket-gateway.md  # (example)
+
+# Step 5: Comment on issue expressing interest
+```
+
+**If you're familiar with the codebase**:
+
+1. Check current sprint in `ROADMAP.md`
+2. Find unassigned tasks in that Epic
+3. Self-assign (if you have permissions) or request assignment
+4. Create branch and start working
+
+### Communication
+
+- **Questions**: Comment on the GitHub issue
+- **Blockers**: Tag maintainer in issue comment
+- **Collaboration**: Join discussion in PR
+- **Help**: Slack/Discord (post v1.0.0) or GitHub Discussions
+
 ## Getting Help
 
-- **Issues**: Open a GitHub issue
+- **Issues**: Open a [GitHub issue](https://github.com/your-org/collabornest/issues/new/choose)
 - **Questions**: Check existing issues or start a discussion
-- **Security**: Report privately via SECURITY.md (if exists)
+- **Security**: Report privately via [SECURITY.md](./SECURITY.md)
 - **Documentation**: See `/docs/project/` for architecture decisions
+- **Roadmap**: See [ROADMAP.md](./docs/project/ROADMAP.md) for development timeline
 
 ## License
 

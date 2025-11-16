@@ -1,0 +1,426 @@
+# EPIC-001: WebSocket Gateway Implementation
+
+> **Epic ID**: BE-001  
+> **Priority**: Critical  
+> **Difficulty**: High  
+> **Timeline**: Weeks 1-8 (8 settimane)  
+> **Team**: 2 backend developers  
+> **Status**: 🔄 In Progress  
+> **Started**: November 16, 2025
+
+---
+
+## 📋 Overview
+
+**Obiettivo**: Implementare gateway WebSocket scalabile per collaboration real-time in ambiente healthcare con Y.js per editing simultaneo conflict-free.
+
+**Componenti chiave**:
+
+- WebSocket connection management con JWT auth
+- Presence tracking tramite Redis
+- Distributed lock management (< 5ms latency)
+- Y.js CRDT per conflict-free editing
+- RabbitMQ per broadcasting cross-instance
+- Audit logging in PostgreSQL (formato NDJSON)
+
+**Riferimenti tecnici**: Vedere `/docs/PROJECT.md` Sezione 3 per architettura completa e diagrammi.
+
+---
+
+## 🏗️ Architettura Backend
+
+```mermaid
+graph TB
+    subgraph "Gateway Application"
+        WS_GATEWAY[WebSocket Gateway<br/>Socket.IO]
+        subgraph "Core Services"
+            AUTH[Authentication<br/>JWT Validator]
+            PRESENCE[Presence Service<br/>Join/Leave/Status]
+            LOCKS[Lock Manager<br/>Distributed Locks]
+            YJS_SVC[Y.js Service<br/>CRDT Sync]
+            AUDIT[Audit Service<br/>Event Logger]
+        end
+        subgraph "Clients"
+            REDIS_CLIENT[Redis Client]
+            RMQ_CLIENT[RabbitMQ Client]
+            PG_CLIENT[PostgreSQL Client]
+            LOGGER[Winston Logger]
+        end
+    end
+
+    WS_GATEWAY --> AUTH
+    AUTH --> PRESENCE & LOCKS & YJS_SVC & AUDIT
+
+    PRESENCE --> REDIS_CLIENT
+    LOCKS --> REDIS_CLIENT
+    YJS_SVC --> REDIS_CLIENT & RMQ_CLIENT
+    AUDIT --> PG_CLIENT & LOGGER
+
+    LOGGER --> FS[File System<br/>Log Files]
+
+    style WS_GATEWAY fill:#4caf50
+    style YJS_SVC fill:#2196f3
+    style AUDIT fill:#ff9800
+    style LOGGER fill:#9c27b0
+```
+
+---
+
+## 📖 User Stories
+
+### Story BE-001.1: WebSocket Connection Management
+
+**Timeline**: Week 1-2  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: WebSocket Connection with JWT Authentication
+
+```gherkin
+Feature: WebSocket Connection with JWT Authentication
+  As a healthcare application user
+  I want to establish a secure WebSocket connection
+  So that I can collaborate in real-time with my team
+
+  Background:
+    Given the Gateway is running and healthy
+    And Redis is available for session storage
+    And PostgreSQL is available for audit logging
+
+  Scenario: Successful connection with valid JWT
+    Given I have a valid JWT token with claims:
+      | claim  | value              |
+      | userId | usr_12345          |
+      | role   | surgeon            |
+      | exp    | now + 24h          |
+    When I connect to the WebSocket gateway with the token
+    Then my connection should be accepted
+    And I should receive a "CONNECTED" event with sessionId
+    And my session should be stored in Redis with key "user:usr_12345:session"
+    And the session should have TTL of 3600 seconds
+    And an audit log should be written with eventType "USER_CONNECTED"
+
+  Scenario: Connection rejected with invalid JWT
+    Given I have an invalid JWT token
+    When I connect to the WebSocket gateway
+    Then my connection should be rejected
+    And I should receive an "UNAUTHORIZED" error
+    And no session should be created in Redis
+    And an audit log should be written with eventType "CONNECTION_REJECTED"
+
+  Scenario: Heartbeat mechanism keeps connection alive
+    Given I am connected to the gateway
+    And my session has TTL of 3600 seconds
+    When I send a "HEARTBEAT" message
+    Then the gateway should respond with "HEARTBEAT_ACK"
+    And my session TTL should be reset to 3600 seconds
+    And my activity timestamp should be updated in Redis
+
+  Scenario: Connection timeout after missed heartbeats
+    Given I am connected to the gateway
+    And I stop sending heartbeat messages
+    When 300 seconds have passed since last activity
+    Then my activity key should expire in Redis
+    And a cleanup job should detect the inactive session
+    And my session should be removed
+    And I should be removed from all resources
+    And all my locks should be released
+
+  Acceptance Criteria:
+    - [ ] JWT validation with RS256 algorithm
+    - [ ] Session creation in Redis with TTL
+    - [ ] Heartbeat every 30 seconds
+    - [ ] Auto-disconnect after 60s without ping/pong
+    - [ ] Graceful disconnection cleanup
+    - [ ] All events logged in NDJSON format
+```
+
+---
+
+### Story BE-001.2: Presence Tracking & Resource Rooms
+
+**Timeline**: Week 2-3  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: User Presence and Resource Rooms
+
+```gherkin
+Feature: User Presence and Resource Rooms
+  As a healthcare application user
+  I want to see who else is collaborating on the same page
+  So that I can coordinate with my team
+
+  Scenario: Join resource as editor
+    Given I am connected to the gateway as user "usr_001"
+    And the resource "page:/patient/12345" exists
+    When I send a "JOIN_RESOURCE" event with:
+      | field        | value                  |
+      | resourceId   | page:/patient/12345    |
+      | resourceType | patient_record         |
+      | mode         | editor                 |
+    Then I should join the resource successfully
+    And I should receive "RESOURCE_STATE" with:
+      | field    | value                                    |
+      | users    | List of currently online users           |
+      | state    | Current Y.js document state              |
+      | revision | Current revision number                  |
+    And I should be added to Redis set "resource:page:/patient/12345:users"
+    And Redis hash "resource:page:/patient/12345:user:usr_001" should contain:
+      | field     | value                  |
+      | mode      | editor                 |
+      | joinedAt  | current_timestamp      |
+    And other users in the resource should receive "USER_JOINED" event
+    And the event should be broadcasted via RabbitMQ
+
+  Scenario: Join resource as viewer
+    Given I am connected to the gateway
+    And I have viewer permissions on resource "page:/patient/12345"
+    When I join the resource as viewer
+    Then I should see all content
+    But I should not be able to send "RESOURCE_UPDATE" events
+    And any update attempt should be rejected with "PERMISSION_DENIED"
+
+  Scenario: Leave resource gracefully
+    Given I am in resource "page:/patient/12345"
+    When I send "LEAVE_RESOURCE" event
+    Then I should be removed from the resource users list
+    And other users should receive "USER_LEFT" event
+    And my metadata should be deleted from Redis
+    And any locks I hold on that resource should be released
+
+  Scenario: Presence list updates in real-time
+    Given I am in resource "page:/patient/12345"
+    And there are 3 other users in the resource
+    When a new user joins
+    Then I should receive "USER_JOINED" event immediately
+    And my presence list should show 5 total users
+    When a user disconnects
+    Then I should receive "USER_LEFT" event
+    And my presence list should show 4 users
+
+  Acceptance Criteria:
+    - [ ] Join/leave resource functionality
+    - [ ] Real-time presence updates via RabbitMQ
+    - [ ] Support for editor/viewer modes
+    - [ ] Permission validation on mode
+    - [ ] Redis sets for user tracking
+    - [ ] Multi-resource support (user can be in multiple rooms)
+```
+
+---
+
+### Story BE-001.3: Distributed Lock Management
+
+**Timeline**: Week 3-4  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: Distributed Resource Locking
+
+```gherkin
+Feature: Distributed Resource Locking
+  As a surgeon using collaborative tools
+  I want to lock a resource while I'm editing it
+  So that others cannot make conflicting changes
+
+  Scenario: Acquire lock on available resource
+    Given I am connected as user "usr_001"
+    And the resource "input-field-123" is not locked
+    When I send "LOCK_ACQUIRE" event for "input-field-123"
+    Then the gateway should execute Redis SET with NX flag:
+      """
+      SET lock:input-field-123 usr_001 EX 30 NX
+      """
+    And the command should return "OK"
+    And I should receive "LOCK_ACQUIRED" event with:
+      | field     | value                      |
+      | lockId    | unique-lock-id             |
+      | expiresAt | current_time + 30 seconds  |
+    And metadata should be stored in Redis hash:
+      """
+      HSET lock:input-field-123:metadata
+        lockType "exclusive"
+        acquiredAt "timestamp"
+        expiresAt "timestamp"
+        userId "usr_001"
+      """
+    And other users should receive "RESOURCE_LOCKED" broadcast
+    And an audit log should record the lock acquisition
+
+  Scenario: Lock denied when resource already locked
+    Given user "usr_002" has a lock on "input-field-123"
+    When I try to acquire a lock on "input-field-123"
+    Then Redis SET NX should return nil
+    And I should receive "LOCK_DENIED" event with:
+      | field        | value                        |
+      | reason       | "already_locked"             |
+      | lockedBy     | "usr_002"                    |
+      | expiresAt    | timestamp                    |
+    And I should not be granted the lock
+
+  Scenario: Lock renewal before expiration
+    Given I hold a lock on "input-field-123" expiring in 5 seconds
+    When I send "LOCK_RENEW" event
+    Then the TTL should be extended to 30 seconds
+    And I should receive "LOCK_RENEWED" confirmation
+    And an audit log should record the renewal
+
+  Scenario: Lock expires automatically
+    Given I hold a lock on "input-field-123"
+    When 30 seconds pass without renewal
+    Then the lock key should expire in Redis
+    And other users should receive "RESOURCE_UNLOCKED" event
+    And they should be able to acquire the lock
+
+  Scenario: Explicit lock release
+    Given I hold a lock on "input-field-123"
+    When I send "LOCK_RELEASE" event
+    Then the lock should be removed from Redis
+    And I should receive "LOCK_RELEASED" confirmation
+    And other users should receive "RESOURCE_UNLOCKED" broadcast
+    And an audit log should record the release
+
+  Acceptance Criteria:
+    - [ ] Atomic lock acquisition (Redis SET NX)
+    - [ ] Lock TTL of 30 seconds (configurable)
+    - [ ] Lock renewal mechanism
+    - [ ] Automatic expiration cleanup
+    - [ ] Explicit lock release
+    - [ ] Broadcast lock state changes via RabbitMQ
+    - [ ] Audit logging for all lock operations
+    - [ ] Lock latency < 5ms (P99)
+```
+
+---
+
+### Story BE-001.4: Y.js CRDT Integration
+
+**Timeline**: Week 4-6  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: Conflict-Free Replicated Data Type (CRDT) with Y.js
+
+**Acceptance Criteria**:
+
+- [ ] Y.js document synchronization
+- [ ] State vector exchange on join
+- [ ] Incremental updates via WebSocket
+- [ ] Persistence in Redis (optional: PostgreSQL for history)
+- [ ] Conflict-free merge guaranteed
+- [ ] Support for Text, Map, Array types
+- [ ] Latency < 50ms for update propagation
+
+---
+
+### Story BE-001.5: RabbitMQ Cross-Instance Messaging
+
+**Timeline**: Week 5-6  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: Event Broadcasting Across Gateway Instances
+
+**Acceptance Criteria**:
+
+- [ ] RabbitMQ exchange configuration (topic exchange)
+- [ ] Publish events to exchange (USER_JOINED, LOCK_ACQUIRED, etc.)
+- [ ] Subscribe to exchange in each gateway instance
+- [ ] Route events to WebSocket clients
+- [ ] Handle connection failures (circuit breaker)
+- [ ] Message delivery guarantee (at-least-once)
+- [ ] Latency < 20ms for cross-instance broadcast
+
+---
+
+### Story BE-001.6: Audit Trail & NDJSON Logging
+
+**Timeline**: Week 6-7  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: Comprehensive Audit Logging
+
+**Acceptance Criteria**:
+
+- [ ] NDJSON format for all audit logs
+- [ ] PostgreSQL storage with 10-year retention
+- [ ] Log rotation (daily files + PostgreSQL)
+- [ ] Indexed columns: userId, resourceId, eventType, timestamp
+- [ ] Include all critical events (connect, join, lock, edit, disconnect)
+- [ ] Searchable via SQL queries
+- [ ] GDPR-compliant data retention policy
+
+---
+
+### Story BE-001.7: Dead Connection Detection
+
+**Timeline**: Week 7-8  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: Error Handling & Recovery
+
+**Acceptance Criteria**:
+
+- [ ] Circuit breaker for Redis (fallback to in-memory)
+- [ ] Circuit breaker for RabbitMQ (fallback to direct client messaging)
+- [ ] Retry logic with exponential backoff
+- [ ] Graceful degradation (disable features if dependencies unavailable)
+- [ ] Health check endpoint (`/health`)
+- [ ] Error logging with stack traces
+- [ ] Automatic reconnection for clients
+
+---
+
+### Story BE-001.8: Performance Optimization & Load Testing
+
+**Timeline**: Week 8  
+**Assignee**: TBD  
+**Status**: 📋 Planned
+
+#### Feature: Performance and Load Testing
+
+**Acceptance Criteria**:
+
+- [ ] Load test with 500+ concurrent users
+- [ ] Latency P99 < 200ms
+- [ ] Message delivery rate > 99.9%
+- [ ] CPU usage < 70% under peak load
+- [ ] Memory usage stable (no leaks)
+- [ ] Redis connection pooling optimized
+- [ ] WebSocket message batching (if needed)
+- [ ] Artillery or k6 load test scripts
+
+---
+
+## 🎯 Success Criteria (Epic Level)
+
+Epic considered complete when ALL criteria met:
+
+- [ ] WebSocket connection with JWT authentication
+- [ ] Real-time presence tracking (join/leave events)
+- [ ] Redis-backed distributed locks (< 5ms latency)
+- [ ] Y.js document synchronization
+- [ ] RabbitMQ event broadcasting across instances
+- [ ] NDJSON audit logs with 10-year retention
+- [ ] Load test: 500+ concurrent users with < 200ms P99 latency
+- [ ] All 8 user stories completed and tested
+- [ ] E2E tests passing (100% coverage of critical paths)
+- [ ] Documentation complete (API, deployment guide)
+- [ ] Security audit passed (no critical vulnerabilities)
+
+---
+
+## 🔗 References
+
+- **Architecture**: `/docs/PROJECT.md` Section 3
+- **BDD Scenarios**: `/docs/PROJECT.md` Section 3.4
+- **ROADMAP**: `/docs/project/ROADMAP.md`
+- **BACKLOG**: `/docs/project/BACKLOG.md`
+
+---
+
+**Last Updated**: November 16, 2025  
+**Next Review**: December 1, 2025
