@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "description": "Release automation configuration for auto-release.js",
+  "_advisory": "IMPORTANT: Auto-release bypasses pre-push tests (sets SKIP_PRE_PUSH_HOOK=true). Before enabling autoRelease=true, ensure: (1) CI/CD pipeline runs full test suite, (2) Consider enabling pre-push.tests in .husky-config.json, (3) Test locally with 'npm run release:suggest' first",
+  "enabled": true,
+  "branches": {
+    "main": {
+      "_comment": "Production branch - auto-release enabled. Ensure CI/CD tests are configured!",
+      "autoRelease": true,
+      "releaseType": "auto",
+      "runTests": false,
+      "runBuild": true,
+      "pushTag": true,
+      "createChangelog": true,
+      "skipIfNoChanges": true
+    },
+    "master": {
+      "_comment": "Production branch - auto-release enabled. Ensure CI/CD tests are configured!",
+      "autoRelease": true,
+      "releaseType": "auto",
+      "runTests": false,
+      "runBuild": true,
+      "pushTag": true,
+      "createChangelog": true,
+      "skipIfNoChanges": true
+    },
+    "develop": {
+      "autoRelease": false,
+      "releaseType": "prerelease",
+      "runTests": false,
+      "runBuild": true,
+      "pushTag": false,
+      "createChangelog": false,
+      "skipIfNoChanges": true
+    },
+    "feature/*": {
+      "autoRelease": false,
+      "runTests": false,
+      "runBuild": false,
+      "pushTag": false,
+      "createChangelog": false
+    },
+    "fix/*": {
+      "autoRelease": false,
+      "runTests": false,
+      "runBuild": false,
+      "pushTag": false,
+      "createChangelog": false
+    }
+  },
+  "versioning": {
+    "strategy": "semver",
+    "prereleasePrefix": "alpha",
+    "buildMetadata": false,
+    "syncLockFile": true,
+    "consistencyCheck": true
+  },
+  "changelog": {
+    "enabled": true,
+    "file": "CHANGELOG.md",
+    "includeHidden": false,
+    "sections": {
+      "feat": "Features",
+      "fix": "Bug Fixes",
+      "docs": "Documentation",
+      "refactor": "Code Refactoring",
+      "perf": "Performance Improvements",
+      "build": "Build System",
+      "revert": "Reverts"
+    }
+  },
+  "git": {
+    "requireCleanWorkingDirectory": true,
+    "tagPrefix": "v",
+    "commitMessageFormat": "chore(release): {{version}}",
+    "pushToRemote": true,
+    "remoteName": "origin"
+  },
+  "hooks": {
+    "preRelease": [],
+    "postRelease": [],
+    "onError": []
+  },
+  "dryRun": {
+    "enabled": false,
+    "verbose": true
+  }
+}

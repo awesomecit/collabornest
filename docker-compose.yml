@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app-database:
+    image: postgres:16-alpine
+    container_name: ${npm_package_name:-app}-postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-app_db}
+      POSTGRES_USER: ${DATABASE_USERNAME:-app_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-app_password}
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --locale=C'
+    ports:
+      - '${DATABASE_PORT:-5432}:5432'
+    volumes:
+      - app_postgres_data:/var/lib/postgresql/data
+      - ./docker/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${DATABASE_USERNAME:-app_user} -d ${DATABASE_NAME:-app_db}',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  app_postgres_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
+    name: ${npm_package_name:-app}-network

@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "description": "Example: Advanced Husky configuration with granular test control per branch",
+  "enabled": true,
+  "hooks": {
+    "commit-msg": {
+      "enabled": true,
+      "validator": "commitlint",
+      "skipOnBranches": [],
+      "skipPatterns": []
+    },
+    "pre-commit": {
+      "enabled": true,
+      "runLintStaged": true,
+      "runTests": false,
+      "runBuild": false,
+      "skipOnBranches": [],
+      "skipPatterns": ["WIP:", "wip:", "TEMP:"],
+      "parallel": false,
+      "tests": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    "pre-push": {
+      "enabled": true,
+      "runBuild": true,
+      "runTests": false,
+      "autoRelease": true,
+      "skipOnBranches": ["feature/*", "fix/*", "hotfix/*", "chore/*", "docs/*"],
+      "skipOnDelete": true,
+      "tests": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      },
+      "branches": {
+        "main": {
+          "runBuild": true,
+          "runTests": false,
+          "autoRelease": true,
+          "tests": {
+            "unit": false,
+            "integration": false,
+            "e2e": false
+          },
+          "comment": "Production branch - all tests in CI/CD only"
+        },
+        "master": {
+          "runBuild": true,
+          "runTests": false,
+          "autoRelease": true,
+          "tests": {
+            "unit": false,
+            "integration": false,
+            "e2e": false
+          },
+          "comment": "Production branch - all tests in CI/CD only"
+        },
+        "develop": {
+          "runBuild": true,
+          "runTests": true,
+          "autoRelease": false,
+          "tests": {
+            "unit": true,
+            "integration": true,
+            "e2e": false
+          },
+          "comment": "Development branch - run unit and integration tests before push"
+        },
+        "staging": {
+          "runBuild": true,
+          "runTests": true,
+          "autoRelease": false,
+          "tests": {
+            "unit": true,
+            "integration": true,
+            "e2e": true
+          },
+          "comment": "Staging branch - run all tests before push"
+        },
+        "qa": {
+          "runBuild": true,
+          "runTests": true,
+          "autoRelease": false,
+          "tests": {
+            "unit": false,
+            "integration": true,
+            "e2e": true
+          },
+          "comment": "QA branch - focus on integration and e2e tests"
+        }
+      }
+    }
+  },
+  "environment": {
+    "CI": {
+      "disableAllHooks": false,
+      "onlyRunCommitMsg": true
+    },
+    "TEST": {
+      "disableAllHooks": true
+    },
+    "LOCAL": {
+      "disableAllHooks": false
+    }
+  },
+  "logging": {
+    "verbose": false,
+    "emoji": false,
+    "colors": true
+  },
+  "comments": {
+    "usage": "Copy this file to .husky-config.json and customize per your workflow",
+    "testStrategy": "Configure which tests run on each branch based on your needs",
+    "performance": "Disable tests in hooks for speed - rely on CI/CD for comprehensive testing",
+    "branches": "Use wildcards (feature/*, fix/*) to match multiple branches"
+  }
+}

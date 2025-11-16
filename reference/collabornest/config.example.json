@@ -1,0 +1,47 @@
+{
+  "limits": {
+    "resource": {
+      "maxEditors": 2,
+      "maxViewers": 20
+    },
+    "subresource": {
+      "default": {
+        "maxEditors": 1,
+        "maxViewers": 5
+      },
+      "overrides": {
+        "patient:icu": {
+          "maxEditors": 1,
+          "maxViewers": 3
+        }
+      }
+    }
+  },
+  "lock": {
+    "defaultTTLms": 300000,
+    "autoUnlockOnDisconnect": true,
+    "maxLockDuration": 3600000
+  },
+  "presence": {
+    "heartbeatIntervalMs": 15000,
+    "staleThresholdMs": 45000,
+    "cleanupIntervalMs": 60000
+  },
+  "socket": {
+    "namespace": "/collab",
+    "transports": ["websocket", "polling"],
+    "pingTimeout": 60000,
+    "pingInterval": 25000
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "db": 0,
+    "keyPrefix": "collab:"
+  },
+  "rabbitmq": {
+    "url": "amqp://localhost:5672",
+    "exchange": "collab.events",
+    "queuePrefix": "collab"
+  }
+}

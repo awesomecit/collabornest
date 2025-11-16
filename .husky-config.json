@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "description": "Husky git hooks configuration for granular control",
+  "enabled": true,
+  "hooks": {
+    "commit-msg": {
+      "enabled": true,
+      "validator": "commitlint",
+      "skipOnBranches": [],
+      "skipPatterns": []
+    },
+    "pre-commit": {
+      "enabled": true,
+      "runLintStaged": true,
+      "runTests": false,
+      "runBuild": false,
+      "skipOnBranches": [],
+      "skipPatterns": ["WIP:", "wip:"],
+      "parallel": false,
+      "tests": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      }
+    },
+    "pre-push": {
+      "enabled": true,
+      "runBuild": true,
+      "runTests": false,
+      "autoRelease": true,
+      "skipOnBranches": ["feature/*", "fix/*", "hotfix/*", "chore/*"],
+      "skipOnDelete": true,
+      "tests": {
+        "unit": false,
+        "integration": false,
+        "e2e": false
+      },
+      "branches": {
+        "main": {
+          "runBuild": true,
+          "runTests": false,
+          "autoRelease": true,
+          "tests": {
+            "unit": false,
+            "integration": false,
+            "e2e": false
+          }
+        },
+        "master": {
+          "runBuild": true,
+          "runTests": false,
+          "autoRelease": true,
+          "tests": {
+            "unit": false,
+            "integration": false,
+            "e2e": false
+          }
+        },
+        "develop": {
+          "runBuild": true,
+          "runTests": true,
+          "autoRelease": false,
+          "tests": {
+            "unit": true,
+            "integration": true,
+            "e2e": false
+          }
+        }
+      }
+    }
+  },
+  "testSuites": {
+    "unit": {
+      "command": "npm test",
+      "timeout": 120000,
+      "parallel": true,
+      "requiresDb": false,
+      "description": "Fast unit tests (isolated, no DB). Recommended for local development."
+    },
+    "integration": {
+      "command": "npm run test:integration",
+      "timeout": 300000,
+      "parallel": false,
+      "requiresDb": true,
+      "description": "Integration tests with database. Enable only if no CI/CD available."
+    },
+    "e2e": {
+      "command": "npm run test:e2e",
+      "timeout": 600000,
+      "parallel": false,
+      "requiresDb": true,
+      "description": "End-to-end tests (full application). Should run in CI/CD only."
+    }
+  },
+  "environment": {
+    "CI": {
+      "disableAllHooks": false,
+      "onlyRunCommitMsg": true
+    },
+    "TEST": {
+      "disableAllHooks": true
+    }
+  },
+  "logging": {
+    "verbose": false,
+    "emoji": false,
+    "colors": true
+  }
+}

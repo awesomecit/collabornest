@@ -1,0 +1,600 @@
+# Contributing to NestJS Template Generator
+
+Thank you for your interest in contributing! This guide will help you get started.
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Development Workflow](#development-workflow)
+- [Commit Conventions](#commit-conventions)
+- [Testing Guidelines](#testing-guidelines)
+- [Code Quality Standards](#code-quality-standards)
+- [Pull Request Process](#pull-request-process)
+- [Release Workflow](#release-workflow)
+- [Git Hooks](#git-hooks)
+- [Troubleshooting](#troubleshooting)
+
+## Getting Started
+
+### Prerequisites
+
+- **Node.js**: >= 20.8.0
+- **npm**: >= 10.0.0
+- **Docker**: For running PostgreSQL (optional for unit tests)
+- **Git**: For version control
+
+### Initial Setup
+
+1. **Clone the repository**
+
+   ```bash
+   git clone <repository-url>
+   cd nestjs-template-generator
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   npm install
+   ```
+
+3. **Setup environment**
+
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. **Verify setup**
+
+   ```bash
+   npm run verify
+   ```
+
+   This runs: `format:check` → `lint:check` → `test` → `build`
+
+5. **Start development server** (optional)
+
+   ```bash
+   npm run start:dev
+   ```
+
+## Development Workflow
+
+We follow **Trunk-Based Development (TBD)** with **Extreme Programming (XP)** practices:
+
+### Daily Workflow
+
+```bash
+# 1. Pull latest changes
+git checkout main
+git pull origin main
+
+# 2. Create short-lived feature branch (max 1-2 days)
+git checkout -b feature/add-user-validation
+
+# 3. Make atomic changes (one logical change per commit)
+# ... edit code ...
+
+# 4. Run tests frequently (TDD approach)
+npm test
+
+# 5. Commit following conventional commits
+git add .
+git commit -m "feat(users): add email validation to user entity"
+
+# 6. Push and create PR same day
+git push -u origin feature/add-user-validation
+
+# 7. Get review, merge to main
+# 8. Delete feature branch immediately after merge
+```
+
+### Branch Naming Conventions
+
+- `feature/description` - New features
+- `fix/description` - Bug fixes
+- `refactor/description` - Code refactoring
+- `docs/description` - Documentation updates
+- `test/description` - Test additions/fixes
+- `chore/description` - Maintenance tasks
+
+## Commit Conventions
+
+We use **Conventional Commits** format:
+
+```text
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer]
+```
+
+### Commit Types
+
+- **feat**: New feature (triggers MINOR version bump)
+- **fix**: Bug fix (triggers PATCH version bump)
+- **docs**: Documentation only
+- **refactor**: Code refactoring (no functional changes)
+- **test**: Adding or updating tests
+- **chore**: Maintenance tasks
+- **perf**: Performance improvements
+- **ci**: CI/CD changes
+- **build**: Build system changes
+- **revert**: Revert previous commit
+  git commit -m "feat: very long subject that exceeds the maximum character limit of 72 characters" # ❌ Too long
+
+### Examples
+
+```bash
+# Good commits
+git commit -m "feat(auth): add JWT token refresh mechanism"
+git commit -m "fix(api): resolve null pointer in user lookup"
+git commit -m "docs(readme): update installation instructions"
+git commit -m "refactor(logger): extract log formatting to utility"
+```
+
+```text
+# Bad commits (will be rejected by commitlint)
+git commit -m "fixed stuff"           # ❌ No type
+git commit -m "Updated code"          # ❌ Not descriptive
+git commit -m "feat: very long subject that exceeds the maximum character limit of 72 characters"  # ❌ Too long
+```
+
+### Commit Message Rules
+
+- ✅ Subject must be ≤ 72 characters
+- ✅ Use imperative mood ("add" not "added" or "adds")
+- ✅ No emoji in commit messages
+- ✅ Scope is optional but recommended
+- ✅ Body is optional for complex changes
+- ✅ Reference issues: `Fixes #123` or `Closes #456`
+
+## Testing Guidelines
+
+### Test Strategy
+
+```text
+Unit Tests       → Fast, isolated, no dependencies (default npm test)
+Integration Tests → Database required, test DB interactions
+E2E Tests        → Full stack, test HTTP endpoints
+```
+
+### When to Write Each Type
+
+**Unit Tests** (`*.spec.ts`)
+
+- Pure functions and business logic
+- Services without external dependencies
+- Utilities, validators, transformers
+- **Run:** `npm test` (parallel, <5s timeout)
+
+**Integration Tests** (`*.integration.spec.ts`)
+
+- Database operations (TypeORM entities, repositories)
+- External service integrations
+- **Run:** `npm run test:integration:safe` (requires PostgreSQL, 30s timeout)
+
+**E2E Tests** (`test/*.e2e.spec.ts`)
+
+- Complete user workflows
+- API endpoint validation
+- **Run:** `npm run test:e2e:safe` (full stack, 60s timeout)
+
+### Test Safety Guards
+
+Always use **safe scripts** for integration/e2e tests:
+
+```bash
+# ✅ SAFE: Prevents production DB accidents
+npm run test:integration:safe
+npm run test:e2e:safe
+
+# ⚠️ UNSAFE: No safety guards
+npm run test:integration
+npm run test:e2e
+```
+
+Safety guards check:
+
+- `NODE_ENV=test` is set
+- Database name doesn't contain "prod", "production", "live"
+- Database host is localhost or safe pattern
+
+### TDD Workflow
+
+```bash
+# 1. Write failing test
+npm run test:watch
+
+# 2. Implement minimal code to pass
+# 3. Refactor while keeping tests green
+# 4. Repeat
+```
+
+## Code Quality Standards
+
+### Linting & Formatting
+
+```bash
+# Check quality (format + lint)
+npm run quality
+
+# Auto-fix issues
+npm run quality:fix
+
+# Format only
+npm run format
+
+# Lint only
+npm run lint
+```
+
+### Cognitive Complexity Analysis
+
+We enforce complexity limits via ESLint:
+
+- **Cognitive Complexity**: Max 10
+- **Cyclomatic Complexity**: Max 10
+- **Function Length**: Max 50 lines
+- **Parameters**: Max 4
+- **Nesting Depth**: Max 3
+
+**Analyze complexity:**
+
+```bash
+# Full analysis
+npm run analyze
+
+# Specific checks
+npm run analyze:cognitive
+npm run analyze:cyclomatic
+npm run analyze:functions
+npm run analyze:security
+
+# Generate JSON report for CI
+npm run analyze:json
+```
+
+**Refactoring Strategies:**
+
+If you hit complexity limits:
+
+1. **Extract Method**: Break into smaller functions
+2. **Early Returns**: Use guard clauses
+3. **Strategy Pattern**: Replace conditionals
+4. **Configuration Objects**: Reduce parameters
+
+## Pull Request Process
+
+### Before Creating PR
+
+1. ✅ All tests pass (`npm test`)
+2. ✅ Code is formatted (`npm run format:check`)
+3. ✅ No linting errors (`npm run lint:check`)
+4. ✅ Build succeeds (`npm run build`)
+5. ✅ Commit messages follow conventions
+6. ✅ Branch is up-to-date with main
+
+**Quick check:**
+
+```bash
+npm run verify
+```
+
+### PR Checklist
+
+- [ ] **Title**: Follows conventional commit format
+- [ ] **Description**: Clear explanation of changes
+- [ ] **Tests**: Added/updated for new functionality
+- [ ] **Documentation**: Updated if public API changed
+- [ ] **Breaking Changes**: Documented with migration guide
+- [ ] **CHANGELOG**: Updated (if applicable)
+- [ ] **No Secrets**: No API keys, passwords, tokens committed
+
+### PR Template (create in `.github/PULL_REQUEST_TEMPLATE.md`)
+
+```markdown
+## Description
+
+Brief description of changes
+
+## Type of Change
+
+- [ ] feat: New feature
+- [ ] fix: Bug fix
+- [ ] refactor: Code refactoring
+- [ ] docs: Documentation update
+- [ ] test: Test additions/updates
+- [ ] chore: Maintenance
+
+## Testing
+
+- [ ] Unit tests added/updated
+- [ ] Integration tests added/updated
+- [ ] E2E tests added/updated
+- [ ] All tests passing locally
+
+## Checklist
+
+- [ ] Code follows project conventions
+- [ ] Self-review completed
+- [ ] Comments added for complex logic
+- [ ] Documentation updated
+- [ ] No breaking changes (or documented)
+```
+
+### Code Review Guidelines
+
+**As Reviewer:**
+
+- ✅ Check logic correctness
+- ✅ Verify test coverage
+- ✅ Ensure code readability
+- ✅ Validate complexity limits
+- ✅ Look for security issues
+- ⚠️ Be constructive and respectful
+
+**As Author:**
+
+- ✅ Respond to all comments
+- ✅ Address or justify feedback
+- ✅ Keep PR scope focused
+- ✅ Squash commits if needed
+
+## Release Workflow
+
+We use **Semantic Versioning** (MAJOR.MINOR.PATCH) with automated releases:
+
+### Versioning Rules
+
+- **MAJOR** (1.0.0 → 2.0.0): Breaking changes
+- **MINOR** (1.0.0 → 1.1.0): New features (backward compatible)
+- **PATCH** (1.0.0 → 1.0.1): Bug fixes
+
+### Automated Release (main branch only)
+
+**Preview release:**
+
+```bash
+npm run release:suggest
+```
+
+This shows what version would be released (dry-run mode).
+
+**Create release:**
+
+```bash
+npm run release
+```
+
+This will:
+
+1. ✅ Analyze commits since last tag
+2. ✅ Calculate new version (semver)
+3. ✅ Update `package.json` and `package-lock.json`
+4. ✅ Generate CHANGELOG.md
+5. ✅ Create git commit: `chore(release): bump version to X.Y.Z`
+6. ✅ Create git tag: `vX.Y.Z`
+7. ✅ Push commit and tag to remote
+
+### Manual Release (advanced)
+
+```bash
+# Force specific version bump
+npm run release:patch   # 1.0.0 → 1.0.1
+npm run release:minor   # 1.0.0 → 1.1.0
+npm run release:major   # 1.0.0 → 2.0.0
+```
+
+### Release Checklist
+
+**Before release:**
+
+- [ ] All tests passing in CI
+- [ ] `main` branch is stable
+- [ ] No uncommitted changes
+- [ ] Local branch synced with remote
+
+**After release:**
+
+- [ ] Verify tag created on GitHub
+- [ ] Check GitHub Release notes (if automated)
+- [ ] Notify team if breaking changes
+
+## Git Hooks
+
+We use **Husky** for automated checks:
+
+### Pre-Commit Hook
+
+**Runs:** lint-staged (formats and lints staged files)
+
+**Configured in:** `.husky/pre-commit`
+
+**What happens:**
+
+```bash
+git commit
+# → Formats .ts, .js files (Prettier)
+# → Lints .ts, .js files (ESLint --fix)
+# → Formats .json, .md, .yml files (Prettier)
+# → Auto-fixes and stages changes
+```
+
+### Commit-Msg Hook
+
+**Runs:** commitlint (validates commit message format)
+
+**Configured in:** `.husky/commit-msg`
+
+**What happens:**
+
+```bash
+git commit -m "invalid message"
+# ❌ Rejected: Must follow conventional commits format
+
+git commit -m "feat(api): add user endpoint"
+# ✅ Accepted
+```
+
+### Pre-Push Hook (optional, disabled by default)
+
+**Configured in:** `.husky-config.json`
+
+Can run tests before push (disabled for TBD workflow - tests run in CI instead).
+
+**To enable:**
+
+Edit `.husky-config.json`:
+
+```json
+{
+  "hooks": {
+    "pre-push": {
+      "enabled": true,
+      "tests": {
+        "unit": true,
+        "integration": false,
+        "e2e": false
+      }
+    }
+  }
+}
+```
+
+### Bypassing Hooks (emergency only)
+
+```bash
+# Skip pre-commit (NOT recommended)
+git commit --no-verify -m "emergency fix"
+
+# Skip pre-push
+git push --no-verify
+```
+
+## Troubleshooting
+
+### Tests Failing
+
+**Problem:** Tests fail locally
+
+```bash
+# Clean install
+rm -rf node_modules package-lock.json
+npm install
+
+# Check Node version
+node -v  # Must be >= 20.8.0
+
+# Run specific test
+npm test -- src/app.service.spec.ts
+```
+
+**Problem:** Integration tests fail
+
+```bash
+# Verify PostgreSQL is running
+docker ps | grep postgres
+
+# Start database
+docker-compose up -d
+
+# Check database connection
+npm run test:integration:safe
+```
+
+**Problem:** "Working directory not clean" error
+
+```bash
+# Check uncommitted changes
+git status
+
+# Stash or commit changes
+git stash
+# or
+git add . && git commit -m "chore: work in progress"
+```
+
+### Build Failures
+
+**Problem:** TypeScript errors
+
+```bash
+# Clean build
+rm -rf dist
+npm run build
+
+# Check tsconfig.json
+cat tsconfig.json
+```
+
+**Problem:** Module not found
+
+```bash
+# Reinstall dependencies
+npm ci
+```
+
+### Git Hook Issues
+
+**Problem:** Hooks not running
+
+```bash
+# Reinstall Husky
+npm run prepare
+
+# Check hooks are executable
+ls -la .husky/
+chmod +x .husky/pre-commit
+chmod +x .husky/commit-msg
+```
+
+**Problem:** Commitlint fails
+
+```bash
+# Check commit message format
+git log -1 --pretty=%B
+
+# Valid format: type(scope): subject
+# Example: feat(api): add user endpoint
+```
+
+### Release Issues
+
+**Problem:** Release fails with "not synchronized"
+
+```bash
+# Pull latest changes
+git pull origin main
+
+# Try release again
+npm run release
+```
+
+**Problem:** Dry-run modified files (known bug, see BACKLOG.md BUG-001)
+
+```bash
+# Restore modified files
+git restore package.json package-lock.json
+
+# Use manual release instead
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push --tags
+```
+
+## Getting Help
+
+- **Issues**: Open a GitHub issue
+- **Questions**: Check existing issues or start a discussion
+- **Security**: Report privately via SECURITY.md (if exists)
+- **Documentation**: See `/docs/project/` for architecture decisions
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the project's license.
+
+---
+
+**Thank you for contributing!** 🎉

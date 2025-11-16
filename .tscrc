@@ -1,0 +1,3 @@
+File placeholder che permette a .bashrc con script ad hoc
+di precaricare all apertura di un terminale la versione
+typescript definita nel progetto sfuttando il package.json

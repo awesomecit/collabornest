@@ -1,0 +1,104 @@
+#!/bin/sh
+
+CONFIG_FILE=".husky-config.json"
+
+# Check if enabled
+if [ -f "$CONFIG_FILE" ]; then
+  ENABLED=$(node -p "try { require('./$CONFIG_FILE').hooks['pre-push'].enabled } catch(e) { true }")
+  if [ "$ENABLED" = "false" ]; then
+    echo "Pre-push hook disabled"
+    exit 0
+  fi
+fi
+
+# Skip if called from release system
+if [ "$SKIP_PRE_PUSH_HOOK" = "true" ]; then
+  echo "Skipping pre-push (called from release)"
+  exit 0
+fi
+
+# Get current branch
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Check if branch should be skipped
+if [ -f "$CONFIG_FILE" ]; then
+  node -p "
+    try {
+      const config = require('./$CONFIG_FILE');
+      const patterns = config.hooks['pre-push'].skipOnBranches || [];
+      const branch = '$CURRENT_BRANCH';
+      const shouldSkip = patterns.some(p => {
+        const regex = new RegExp('^' + p.replace(/\*/g, '.*') + '$');
+        return regex.test(branch);
+      });
+      if (shouldSkip) {
+        console.log('Skipping pre-push on branch ' + branch);
+        process.exit(42);
+      }
+    } catch(e) { }
+  " || test $? -eq 42 && exit 0
+fi
+
+echo "Running pre-push checks on branch: $CURRENT_BRANCH"
+
+# Run build if configured
+if [ -f "$CONFIG_FILE" ]; then
+  RUN_BUILD=$(node -p "try { const cfg = require('./$CONFIG_FILE'); const branchCfg = cfg.hooks['pre-push'].branches?.['$CURRENT_BRANCH']; branchCfg?.runBuild ?? cfg.hooks['pre-push'].runBuild } catch(e) { true }")
+  if [ "$RUN_BUILD" = "true" ]; then
+    echo "Building..."
+    npm run build || exit 1
+  fi
+fi
+
+# Run tests if configured (granular per branch)
+if [ -f "$CONFIG_FILE" ]; then
+  node -p "
+    try {
+      const config = require('./$CONFIG_FILE');
+      const branch = '$CURRENT_BRANCH';
+      const branchConfig = config.hooks['pre-push'].branches?.[branch];
+      const tests = branchConfig?.tests || config.hooks['pre-push'].tests || {};
+
+      if (tests.unit) process.exit(10);
+      if (tests.integration) process.exit(11);
+      if (tests.e2e) process.exit(12);
+    } catch(e) { }
+  "
+
+  EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 10 ]; then
+    echo "Running unit tests..."
+    npm test || exit 1
+  fi
+  if [ $EXIT_CODE -eq 11 ]; then
+    echo "Running integration tests..."
+    npm run test:integration || exit 1
+  fi
+  if [ $EXIT_CODE -eq 12 ]; then
+    echo "Running e2e tests..."
+    npm run test:e2e || exit 1
+  fi
+fi
+
+# Run auto-release if configured
+if [ -f "$CONFIG_FILE" ]; then
+  node -p "
+    try {
+      const config = require('./$CONFIG_FILE');
+      const branch = '$CURRENT_BRANCH';
+      const branchConfig = config.hooks['pre-push'].branches?.[branch];
+      const autoRelease = branchConfig?.autoRelease ?? config.hooks['pre-push'].autoRelease;
+      if (autoRelease) {
+        console.log('Auto-release enabled for branch ' + branch);
+        process.exit(2);
+      }
+    } catch(e) { }
+  "
+  if [ $? -eq 2 ]; then
+    export SKIP_PRE_PUSH_HOOK=true
+    node scripts/auto-release.js --type="auto" --workflow=true
+    unset SKIP_PRE_PUSH_HOOK
+  fi
+fi
+
+echo "Pre-push checks completed"

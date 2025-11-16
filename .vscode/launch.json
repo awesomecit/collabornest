@@ -1,0 +1,89 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${file}",
+      "preLaunchTask": "tsc: build - tsconfig.json",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "env": {
+        "NODE_ENV": "development",
+        "DATABASE_HOST": "localhost",
+        "DATABASE_PORT": "5432",
+        "DATABASE_USERNAME": "dev_user",
+        "DATABASE_PASSWORD": "dev_password",
+        "DATABASE_NAME": "dev_db",
+        "JWT_SECRET": "dev_secret_1234567891011121314151617181920212223242526272829303132"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug NestJS with Watch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:debug"],
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal",
+      "restart": true,
+      "env": {
+        "NODE_ENV": "development",
+        "DATABASE_HOST": "localhost",
+        "DATABASE_PORT": "5432",
+        "DATABASE_USERNAME": "dev_user",
+        "DATABASE_PASSWORD": "dev_password",
+        "DATABASE_NAME": "dev_db",
+        "JWT_SECRET": "dev_secret_1234567891011121314151617181920212223242526272829303132"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug NestJS Direct",
+      "program": "${workspaceFolder}/src/main.ts",
+      "runtimeArgs": [
+        "-r",
+        "tsconfig-paths/register",
+        "-r",
+        "ts-node/register"
+      ],
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal",
+      "restart": true,
+      "env": {
+        "NODE_ENV": "development",
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json",
+        "DATABASE_HOST": "localhost",
+        "DATABASE_PORT": "5432",
+        "DATABASE_USERNAME": "dev_user",
+        "DATABASE_PASSWORD": "dev_password",
+        "DATABASE_NAME": "dev_db",
+        "JWT_SECRET": "dev_secret_1234567891011121314151617181920212223242526272829303132"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Jest Tests",
+      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "args": ["--runInBand", "--no-cache"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "openOnSessionStart",
+      "env": {
+        "NODE_ENV": "test",
+        "DATABASE_HOST": "localhost",
+        "DATABASE_PORT": "5432",
+        "DATABASE_USERNAME": "test_user",
+        "DATABASE_PASSWORD": "test_password",
+        "DATABASE_NAME": "test_db",
+        "JWT_SECRET": "test_secret"
+      }
+    }
+  ]
+}
