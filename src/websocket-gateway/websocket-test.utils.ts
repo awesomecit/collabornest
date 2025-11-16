@@ -11,8 +11,8 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { io, Socket } from 'socket.io-client';
-import { WebSocketGateway } from './websocket-gateway.gateway';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
+import { WebSocketGateway } from './websocket-gateway.gateway';
 
 /**
  * JWT Token Factory
@@ -374,3 +374,12 @@ export class WebSocketAssertions {
     expect(connections).toHaveLength(expectedCount);
   }
 }
+
+/**
+ * Helper functions for backward compatibility
+ */
+export const createValidJWT = (userId: string): string =>
+  JWTTokenFactory.createValid(userId);
+
+export const createExpiredJWT = (userId: string): string =>
+  JWTTokenFactory.createExpired(userId);
