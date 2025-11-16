@@ -163,17 +163,21 @@ npm run ci
 ### If Credentials Are Accidentally Committed
 
 1. **Immediate Actions**:
+
    ```bash
    # Revoke compromised credentials immediately
    # Generate new secrets
    # Update .env files on all environments
    ```
+
 2. **Git History Cleanup** (if pushed):
+
    ```bash
    # Use BFG Repo-Cleaner or git-filter-branch
    # Force push to rewrite history (DESTRUCTIVE)
    # Notify all contributors to re-clone
    ```
+
 3. **Notification**:
    - Inform security team
    - Assess impact (which systems exposed?)
@@ -227,7 +231,7 @@ cat .env.example | grep -E "(password|secret|key)"
 
 ## 📞 Security Contacts
 
-**Primary Contact**: <aqwesome.cit.dev@gmail.com>
+**Primary Contact**: <awesome.cit.dev@gmail.com>
 **Response Time**: Within 48 hours
 **Disclosure Policy**: Coordinated disclosure (30-90 days after fix)
 

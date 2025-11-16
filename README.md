@@ -13,7 +13,10 @@
 
 ## 📚 Documentation
 
+> **🗺️ New here?** See **[Documentation Structure Guide](./docs/DOCUMENTATION_GUIDE.md)** to understand where everything is!
+
 - **[Quickstart Guide](./docs/QUICKSTART.md)** - 15-minute tutorial to get started
+- **[Documentation Guide](./docs/DOCUMENTATION_GUIDE.md)** - 📍 **START HERE** - Complete navigation of all docs
 - **[Project Roadmap](./docs/project/ROADMAP.md)** - Development timeline and milestones
 - **[Complete Specification](./docs/PROJECT.md)** - Full technical architecture (2000+ lines)
 - **[Contributing Guide](./CONTRIBUTING.md)** - How to contribute to the project
@@ -363,7 +366,7 @@ We take security seriously. CollaborNest includes built-in protections and follo
 
 ### Reporting Vulnerabilities
 
-Report security vulnerabilities **privately** to: <aqwesome.cit.dev@gmail.com>
+Report security vulnerabilities **privately** to: <awesome.cit.dev@gmail.com>
 
 **DO NOT** create public GitHub issues for security concerns.
 
@@ -476,6 +479,6 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 
 ---
 
-**Built with ❤️ for Healthcare Collaboration**  
-**Maintainer**: Antonio (<aqwesome.cit.dev@gmail.com>)  
+**Built with ❤️ for Healthcare Collaboration**
+**Maintainer**: Antonio (<awesome.cit.dev@gmail.com>)
 **Last Updated**: November 16, 2025

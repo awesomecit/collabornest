@@ -179,4 +179,4 @@ npm audit --omit=dev
 
 **Report Generated**: November 16, 2025
 **Next Audit**: Weekly (automated via CI/CD)
-**Contact**: <aqwesome.cit.dev@gmail.com>
+**Contact**: <awesome.cit.dev@gmail.com>

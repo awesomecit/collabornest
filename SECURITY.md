@@ -21,7 +21,7 @@ We take the security of CollaborNest seriously. If you believe you have found a 
 
 ### Please DO
 
-1. **Email us privately** at: **<aqwesome.cit.dev@gmail.com>**
+1. **Email us privately** at: **<awesome.cit.dev@gmail.com>**
 2. **Include detailed information**:
    - Description of the vulnerability
    - Steps to reproduce the issue
@@ -124,7 +124,7 @@ _No vulnerabilities reported yet. Be the first!_
 
 ## Contact
 
-**Security Team**: <aqwesome.cit.dev@gmail.com>
+**Security Team**: <awesome.cit.dev@gmail.com>
 
 **PGP Key**: _Available upon request_
 

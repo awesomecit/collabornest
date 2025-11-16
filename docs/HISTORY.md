@@ -154,7 +154,7 @@ See `docs/project/BACKLOG.md` for detailed roadmap.
 
 ## 📞 Contact
 
-**Security**: <aqwesome.cit.dev@gmail.com>
+**Security**: <awesome.cit.dev@gmail.com>
 **Project**: [GitHub Repository URL - to be added]
 
 ---

@@ -6,4 +6,4 @@ Our project follows the Contributor Covenant Code of Conduct. By participating, 
 
 For the full text, see: <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>
 
-Report misconduct to: <aqwesome.cit.dev@gmail.com>
+Report misconduct to: <awesome.cit.dev@gmail.com>

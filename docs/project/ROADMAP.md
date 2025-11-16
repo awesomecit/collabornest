@@ -1,7 +1,7 @@
 # CollaborNest - Product Roadmap
 
-> **Last Updated**: November 16, 2025  
-> **Version**: 1.0  
+> **Last Updated**: November 16, 2025
+> **Version**: 1.0
 > **Status**: Active Development
 
 ---
@@ -12,7 +12,7 @@ CollaborNest is a real-time collaboration platform for healthcare applications. 
 
 **Vision**: Transform any healthcare web application into a collaborative real-time system **without modifying source code**.
 
-**Repository**: [GitHub - CollaborNest](https://github.com/your-org/collabornest)  
+**Repository**: [GitHub - CollaborNest](https://github.com/your-org/collabornest)
 **Documentation**: See [`/docs/PROJECT.md`](./PROJECT.md) for complete technical specification
 
 ---
@@ -72,8 +72,8 @@ gantt
 
 ## 🚀 Phase 1: Backend Foundation (Weeks 1-8)
 
-**Timeline**: November 16, 2025 - January 10, 2026  
-**Epic**: [BE-001: WebSocket Gateway Implementation](./EPIC-001-websocket-gateway.md)  
+**Timeline**: November 16, 2025 - January 10, 2026
+**Epic**: [BE-001: WebSocket Gateway Implementation](./EPIC-001-websocket-gateway.md)
 **Status**: 🔄 In Progress
 
 ### Milestones
@@ -103,8 +103,8 @@ gantt
 
 ## 🎨 Phase 2: Frontend Widget (Weeks 9-13)
 
-**Timeline**: January 11, 2026 - February 14, 2026  
-**Epic**: [FE-001: Collaboration Widget SDK](./EPIC-002-collaboration-widget.md)  
+**Timeline**: January 11, 2026 - February 14, 2026
+**Epic**: [FE-001: Collaboration Widget SDK](./EPIC-002-collaboration-widget.md)
 **Status**: 📋 Planned
 
 ### Milestones
@@ -131,8 +131,8 @@ gantt
 
 ## 🏗️ Phase 3: Production Infrastructure (Weeks 14-16)
 
-**Timeline**: February 15, 2026 - March 7, 2026  
-**Epic**: [DEVOPS-001: Production Infrastructure](./EPIC-003-production-infra.md)  
+**Timeline**: February 15, 2026 - March 7, 2026
+**Epic**: [DEVOPS-001: Production Infrastructure](./EPIC-003-production-infra.md)
 **Status**: 📋 Planned
 
 ### Milestones
@@ -304,7 +304,7 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development workflow and task s
 
 ## 📞 Contact
 
-- **Project Lead**: Antonio (aqwesome.cit.dev@gmail.com)
+- **Project Lead**: Antonio (<awesome.cit.dev@gmail.com>)
 - **Security**: See [SECURITY.md](../../SECURITY.md)
 - **Discussions**: GitHub Discussions (post v1.0.0)
 
