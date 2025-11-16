@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { WebSocketGateway, ConnectionInfo } from './websocket-gateway.gateway';
-import { WebSocketGatewayConfigService } from './config/gateway-config.service';
-import { WsEvent, WsErrorCode } from './constants';
 import { Socket } from 'socket.io';
+import { WebSocketGatewayConfigService } from './config/gateway-config.service';
+import { WsErrorCode, WsEvent } from './constants';
+import { WebSocketGateway } from './websocket-gateway.gateway';
 
 /**
  * BE-001.1: WebSocket Connection Management - Unit Tests

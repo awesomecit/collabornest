@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import {
   WebSocketGateway as NestWebSocketGateway,
   OnGatewayConnection,
@@ -6,13 +7,12 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable } from '@nestjs/common';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import {
-  WsEvent,
   WsErrorCode,
   WsErrorMessage,
   WsErrorResponse,
+  WsEvent,
 } from './constants';
 
 /**

@@ -8,9 +8,9 @@
  * import { WsEvent, WsErrorCode, WsErrorMessage } from './constants';
  * ```
  */
-export { WsEvent } from './ws-events.enum';
 export {
   WsErrorCode,
   WsErrorMessage,
   WsErrorResponse,
 } from './ws-error-codes.enum';
+export { WsEvent } from './ws-events.enum';
