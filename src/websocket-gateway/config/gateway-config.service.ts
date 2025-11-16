@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { WebSocketConfigKey, JwtConfigKey } from '../constants';
 
 /**
  * WebSocket Gateway Configuration Service
@@ -45,7 +46,8 @@ export class WebSocketGatewayConfigService {
    */
   isEnabled(): boolean {
     return (
-      this.configService.get<string>('WEBSOCKET_ENABLED', 'true') === 'true'
+      this.configService.get<string>(WebSocketConfigKey.ENABLED, 'true') ===
+      'true'
     );
   }
 
@@ -55,7 +57,7 @@ export class WebSocketGatewayConfigService {
    * @returns port number (default: 3001)
    */
   getPort(): number {
-    return this.configService.get<number>('WEBSOCKET_PORT', 3001);
+    return this.configService.get<number>(WebSocketConfigKey.PORT, 3001);
   }
 
   /**
@@ -68,7 +70,7 @@ export class WebSocketGatewayConfigService {
    */
   getNamespace(): string {
     return this.configService.get<string>(
-      'WEBSOCKET_NAMESPACE',
+      WebSocketConfigKey.NAMESPACE,
       '/collaboration',
     );
   }
@@ -85,7 +87,10 @@ export class WebSocketGatewayConfigService {
     origin: string | string[] | boolean;
     credentials: boolean;
   } {
-    const origin = this.configService.get<string>('WEBSOCKET_CORS_ORIGIN', '*');
+    const origin = this.configService.get<string>(
+      WebSocketConfigKey.CORS_ORIGIN,
+      '*',
+    );
 
     return {
       origin: origin === '*' ? true : origin.split(','),
@@ -103,7 +108,7 @@ export class WebSocketGatewayConfigService {
    */
   getTransports(): string[] {
     const transports = this.configService.get<string>(
-      'WEBSOCKET_TRANSPORTS',
+      WebSocketConfigKey.TRANSPORTS,
       'websocket,polling',
     );
 
@@ -119,7 +124,10 @@ export class WebSocketGatewayConfigService {
    * @returns ping interval in milliseconds (default: 25000 = 25s)
    */
   getPingInterval(): number {
-    return this.configService.get<number>('WEBSOCKET_PING_INTERVAL', 25000);
+    return this.configService.get<number>(
+      WebSocketConfigKey.PING_INTERVAL,
+      25000,
+    );
   }
 
   /**
@@ -131,7 +139,10 @@ export class WebSocketGatewayConfigService {
    * @returns ping timeout in milliseconds (default: 20000 = 20s)
    */
   getPingTimeout(): number {
-    return this.configService.get<number>('WEBSOCKET_PING_TIMEOUT', 20000);
+    return this.configService.get<number>(
+      WebSocketConfigKey.PING_TIMEOUT,
+      20000,
+    );
   }
 
   /**
@@ -144,7 +155,7 @@ export class WebSocketGatewayConfigService {
    */
   getMaxConnectionsPerUser(): number {
     return this.configService.get<number>(
-      'WEBSOCKET_MAX_CONNECTIONS_PER_USER',
+      WebSocketConfigKey.MAX_CONNECTIONS_PER_USER,
       5,
     );
   }
@@ -160,16 +171,19 @@ export class WebSocketGatewayConfigService {
   getRoomLimits(): Record<string, number> {
     return {
       resourceType: this.configService.get<number>(
-        'WEBSOCKET_ROOM_LIMIT_RESOURCE',
+        WebSocketConfigKey.ROOM_LIMIT_RESOURCE,
         20,
       ),
       admin_panel: this.configService.get<number>(
-        'WEBSOCKET_ROOM_LIMIT_ADMIN',
+        WebSocketConfigKey.ROOM_LIMIT_ADMIN,
         5,
       ),
-      chat: this.configService.get<number>('WEBSOCKET_ROOM_LIMIT_CHAT', 100),
+      chat: this.configService.get<number>(
+        WebSocketConfigKey.ROOM_LIMIT_CHAT,
+        100,
+      ),
       default: this.configService.get<number>(
-        'WEBSOCKET_ROOM_LIMIT_DEFAULT',
+        WebSocketConfigKey.ROOM_LIMIT_DEFAULT,
         50,
       ),
     };
@@ -192,25 +206,25 @@ export class WebSocketGatewayConfigService {
     return {
       // Lock TTL: 3 hours by default (time before lock expires due to inactivity)
       lockTTL: this.configService.get<number>(
-        'WEBSOCKET_LOCK_TTL',
+        WebSocketConfigKey.LOCK_TTL,
         3 * 60 * 60 * 1000,
       ), // 3h
 
       // Warning time: 15 minutes by default (warning sent before expiry)
       warningTime: this.configService.get<number>(
-        'WEBSOCKET_LOCK_WARNING_TIME',
+        WebSocketConfigKey.LOCK_WARNING_TIME,
         15 * 60 * 1000,
       ), // 15 min
 
       // Sweep interval: 1 minute by default (how often to check for stale locks)
       sweepInterval: this.configService.get<number>(
-        'WEBSOCKET_LOCK_SWEEP_INTERVAL',
+        WebSocketConfigKey.LOCK_SWEEP_INTERVAL,
         60 * 1000,
       ), // 1 min
 
       // Heartbeat interval: 60 seconds by default (expected client heartbeat frequency)
       heartbeatInterval: this.configService.get<number>(
-        'WEBSOCKET_HEARTBEAT_INTERVAL',
+        WebSocketConfigKey.HEARTBEAT_INTERVAL,
         60 * 1000,
       ), // 60s
     };
@@ -226,7 +240,7 @@ export class WebSocketGatewayConfigService {
    * @throws Error if JWT_SECRET is not defined
    */
   getJwtSecret(): string {
-    const secret = this.configService.get<string>('JWT_SECRET');
+    const secret = this.configService.get<string>(JwtConfigKey.SECRET);
 
     if (!secret) {
       throw new Error(
@@ -246,7 +260,7 @@ export class WebSocketGatewayConfigService {
    * @returns JWT issuer string (default: 'collabornest')
    */
   getJwtIssuer(): string {
-    return this.configService.get<string>('JWT_ISSUER', 'collabornest');
+    return this.configService.get<string>(JwtConfigKey.ISSUER, 'collabornest');
   }
 
   /**
@@ -258,7 +272,10 @@ export class WebSocketGatewayConfigService {
    * @returns JWT audience string (default: 'collabornest-api')
    */
   getJwtAudience(): string {
-    return this.configService.get<string>('JWT_AUDIENCE', 'collabornest-api');
+    return this.configService.get<string>(
+      JwtConfigKey.AUDIENCE,
+      'collabornest-api',
+    );
   }
 
   /**
@@ -270,7 +287,7 @@ export class WebSocketGatewayConfigService {
    * @returns JWT expiry string (default: '1d' = 1 day)
    */
   getJwtExpiresIn(): string {
-    return this.configService.get<string>('JWT_EXPIRES_IN', '1d');
+    return this.configService.get<string>(JwtConfigKey.EXPIRES_IN, '1d');
   }
 
   /**

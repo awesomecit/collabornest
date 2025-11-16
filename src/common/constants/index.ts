@@ -2,25 +2,17 @@
  * Common Constants - Barrel Export
  *
  * Single Source of Truth for all common constants:
- * - HTTP error codes and messages
- * - Error messages (deprecated, use HttpErrorCode instead)
+ * - HTTP status codes (re-exported from @nestjs/common)
+ * - Error messages
  *
  * Usage:
  * ```typescript
- * import { HttpErrorCode, HttpErrorMessage, HttpStatus } from '@/common/constants';
+ * import { HttpStatus, ERROR_MESSAGES } from '@/common/constants';
  * ```
  */
-
-// HTTP Error Codes (SSOT)
-export {
-  HttpErrorCode,
-  HttpErrorMessage,
-  HttpErrorResponse,
-  HttpErrorStatusMap,
-} from './http-error-codes.enum';
 
 // Re-export NestJS HttpStatus for convenience
 export { HttpStatus } from '@nestjs/common';
 
-// Legacy error messages (deprecated)
+// Error messages constants
 export { ERROR_MESSAGES } from './error-messages.constants';
