@@ -2,7 +2,7 @@
 
 **Project**: Real-time collaboration platform for healthcare applications
 **Current Version**: 0.2.0
-**License**: MIT (to be added)
+**License**: MIT
 **Maintainer**: Antonio
 
 ---
