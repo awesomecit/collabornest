@@ -1,27 +1,35 @@
 # Dependencies
+
 node_modules/
 
 # Build output
+
 dist/
 build/
 
 # Coverage
+
 coverage/
 
 # Reports
+
 reports/
 
 # Reference (legacy code, not maintained)
+
 reference/
 
 # Logs
+
 *.log
 logs/
 
 # IDE
+
 .vscode/
 .idea/
 
 # OS
+
 .DS_Store
 Thumbs.db

@@ -107,6 +107,9 @@ describe('WebSocketGateway - BE-001.1 Connection Management (TDD)', () => {
     );
 
     await app.init();
+    // Note: WebSocket server needs explicit listen() for real connections
+    // await app.listen(TEST_PORT);
+    // For unit tests, we test gateway logic directly without real server
   });
 
   afterEach(async () => {
@@ -171,7 +174,7 @@ describe('WebSocketGateway - BE-001.1 Connection Management (TDD)', () => {
 
         // WHEN connection is established
         // THEN user information should be available in connection pool
-        const connectionInfo = gateway.getConnectionInfo(client.id);
+        const connectionInfo = gateway.getConnectionInfo(client.id!);
 
         console.log(
           '[DEBUG][WS][Test] Connection info retrieved:',
@@ -179,9 +182,9 @@ describe('WebSocketGateway - BE-001.1 Connection Management (TDD)', () => {
         );
 
         expect(connectionInfo).toBeDefined();
-        expect(connectionInfo.userId).toBe('user456');
-        expect(connectionInfo.username).toBe('user_user456');
-        expect(connectionInfo.email).toBe('user456@example.com');
+        expect(connectionInfo!.userId).toBe('user456');
+        expect(connectionInfo!.username).toBe('user_user456');
+        expect(connectionInfo!.email).toBe('user456@example.com');
 
         client.disconnect();
         done();
@@ -284,7 +287,7 @@ describe('WebSocketGateway - BE-001.1 Connection Management (TDD)', () => {
 
         // WHEN connection is established
         const poolSize = gateway.getConnectionPoolSize();
-        const hasConnection = gateway.hasConnection(client.id);
+        const hasConnection = gateway.hasConnection(client.id!);
 
         console.log('[DEBUG][WS][Test] Connection pool state:', {
           poolSize,
@@ -318,10 +321,10 @@ describe('WebSocketGateway - BE-001.1 Connection Management (TDD)', () => {
         },
       );
 
-      let socketId: string;
+      let socketId: string = '';
 
       client.on('connect', () => {
-        socketId = client.id;
+        socketId = client.id!;
         console.log(
           '[DEBUG][WS][Test] Connection pool removal - client connected:',
           socketId,
