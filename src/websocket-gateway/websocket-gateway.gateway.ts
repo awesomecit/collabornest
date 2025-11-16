@@ -207,14 +207,8 @@ export class WebSocketGateway
         maxConnections,
       });
 
-      const errorResponse: WsErrorResponse = {
-        code: WsErrorCode.MAX_CONNECTIONS_EXCEEDED,
-        message: WsErrorMessage[WsErrorCode.MAX_CONNECTIONS_EXCEEDED],
-        timestamp: new Date().toISOString(),
-        details: { maxConnections, currentConnections: userSocketIds.size },
-      };
-
-      client.emit(WsEvent.CONNECT_ERROR, errorResponse);
+      // Socket.IO pattern: disconnect with server-side logging
+      // Client receives 'disconnect' event with reason
       client.disconnect(true);
       return false;
     }
@@ -267,13 +261,8 @@ export class WebSocketGateway
       stack: error.stack,
     });
 
-    const errorResponse: WsErrorResponse = {
-      code: WsErrorCode.INTERNAL_SERVER_ERROR,
-      message: WsErrorMessage[WsErrorCode.INTERNAL_SERVER_ERROR],
-      timestamp: new Date().toISOString(),
-    };
-
-    client.emit(WsEvent.CONNECT_ERROR, errorResponse);
+    // Socket.IO pattern: disconnect with server-side logging
+    // 'connect_error' is a reserved event name, cannot emit manually
     client.disconnect(true);
   }
 

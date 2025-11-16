@@ -212,12 +212,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       // THEN
       expect(mockClient.disconnect).toHaveBeenCalledWith(true);
       expect(gateway.hasConnection(mockClient.id!)).toBe(false);
-      expect(mockClient.emit).toHaveBeenCalledWith(
-        WsEvent.CONNECT_ERROR,
-        expect.objectContaining({
-          code: WsErrorCode.JWT_INVALID,
-        }),
-      );
+      // Note: No emit check - 'connect_error' is reserved by Socket.IO
 
       console.log('[DEBUG][WS][Unit] Expired JWT rejected successfully');
     });
@@ -235,12 +230,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       // THEN
       expect(mockClient.disconnect).toHaveBeenCalledWith(true);
       expect(gateway.hasConnection(mockClient.id!)).toBe(false);
-      expect(mockClient.emit).toHaveBeenCalledWith(
-        WsEvent.CONNECT_ERROR,
-        expect.objectContaining({
-          code: WsErrorCode.JWT_MISSING,
-        }),
-      );
+      // Note: No emit check - 'connect_error' is reserved by Socket.IO
 
       console.log('[DEBUG][WS][Unit] Missing JWT rejected successfully');
     });
@@ -293,12 +283,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
 
       // THEN extra connection should be rejected
       expect(extraClient.disconnect).toHaveBeenCalledWith(true);
-      expect(extraClient.emit).toHaveBeenCalledWith(
-        WsEvent.CONNECT_ERROR,
-        expect.objectContaining({
-          code: WsErrorCode.MAX_CONNECTIONS_EXCEEDED,
-        }),
-      );
+      // Note: No emit check - 'connect_error' is reserved by Socket.IO
       expect(gateway.getConnectionsByUserId('limit-user').length).toBe(
         maxConnections,
       );

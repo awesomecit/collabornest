@@ -18,7 +18,11 @@ export enum WsEvent {
   CONNECTED = 'CONNECTED',
   DISCONNECTED = 'DISCONNECTED',
 
-  // Error events (Socket.IO reserved - must be lowercase snake_case)
+  /**
+   * @deprecated DO NOT USE - Reserved by Socket.IO, cannot be emitted manually
+   * @see https://socket.io/docs/v4/client-api/#event-connect_error
+   * Use client.disconnect(true) instead for auth failures
+   */
   CONNECT_ERROR = 'connect_error', // Reserved by Socket.IO specification
 
   // Room management events (BE-001.2)
