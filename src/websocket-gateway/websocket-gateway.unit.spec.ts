@@ -74,6 +74,12 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       sockets: {
         sockets: new Map(),
       },
+      engine: {
+        opts: {
+          pingInterval: undefined,
+          pingTimeout: undefined,
+        },
+      },
     };
 
     const mockConfigService = {
@@ -740,6 +746,52 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       // THEN - Should cleanup both connectionPool and userConnections
       expect(gateway.getConnectionPoolSize()).toBe(0);
       expect(gateway.getConnectionsByUserId('force-leak-user')).toHaveLength(0);
+    });
+  });
+
+  /**
+   * STEP 5: Transport-Level Ping/Pong Configuration
+   *
+   * BDD: Socket.IO engine configured with pingInterval and pingTimeout for zombie detection
+   * - afterInit() sets server.engine.opts.pingInterval from config (default 25s)
+   * - afterInit() sets server.engine.opts.pingTimeout from config (default 20s)
+   * - Falls back to defaults if config returns undefined
+   */
+  describe('Step 5: Transport-Level Ping/Pong Configuration', () => {
+    it('should configure Socket.IO engine with custom ping interval and timeout', () => {
+      // GIVEN - Config service returns custom values
+      const customPingInterval = 15000; // 15s
+      const customPingTimeout = 10000; // 10s
+      jest
+        .spyOn(configService, 'getPingInterval')
+        .mockReturnValue(customPingInterval);
+      jest
+        .spyOn(configService, 'getPingTimeout')
+        .mockReturnValue(customPingTimeout);
+
+      // WHEN - afterInit is called
+      gateway.afterInit(gateway.server);
+
+      // THEN - Engine options should be configured
+      expect(gateway.server.engine.opts.pingInterval).toBe(customPingInterval);
+      expect(gateway.server.engine.opts.pingTimeout).toBe(customPingTimeout);
+    });
+
+    it('should use default ping values if config returns undefined', () => {
+      // GIVEN - Config service returns undefined (use defaults)
+      jest
+        .spyOn(configService, 'getPingInterval')
+        .mockReturnValue(undefined as any);
+      jest
+        .spyOn(configService, 'getPingTimeout')
+        .mockReturnValue(undefined as any);
+
+      // WHEN - afterInit is called
+      gateway.afterInit(gateway.server);
+
+      // THEN - Should fall back to Socket.IO defaults
+      expect(gateway.server.engine.opts.pingInterval).toBe(25000); // Default 25s
+      expect(gateway.server.engine.opts.pingTimeout).toBe(20000); // Default 20s
     });
   });
 });

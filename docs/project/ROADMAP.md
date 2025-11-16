@@ -1,8 +1,13 @@
 # CollaborNest - Product Roadmap
 
 > **Last Updated**: November 16, 2025
-> **Version**: 1.0
-> **Status**: Active Development
+> **Vers| Week | Milestone | Deliverable | Status |
+> | ---- | --------------------- | -------------------------------------------------- | -------------- |
+> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
+> | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detection) | ✅ Completed |
+> | 2-3 | Room & Presence | Room join/leave, presence sync, user notifications | 📋 Planned |
+> | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 📋 Planned |: 1.0
+> **Status\*\*: Active Development
 
 ---
 
@@ -78,16 +83,16 @@ gantt
 
 ### Milestones
 
-| Week | Milestone             | Deliverable                                        | Status         |
-| ---- | --------------------- | -------------------------------------------------- | -------------- |
-| 1-2  | Connection Management | JWT auth, heartbeat, session handling              | 🔄 In Progress |
-| 2-3  | Presence Tracking     | Resource rooms, join/leave events                  | 📋 Planned     |
-| 3-4  | Distributed Locks     | Redis-backed locks, TTL, deadlock prevention       | 📋 Planned     |
-| 4-6  | Y.js CRDT             | Conflict-free editing, state synchronization       | 📋 Planned     |
-| 5-6  | RabbitMQ Broadcasting | Event pub/sub, multi-instance coordination         | 📋 Planned     |
-| 6-7  | Audit Logging         | NDJSON format, PostgreSQL persistence              | 📋 Planned     |
-| 7-8  | Error Handling        | Circuit breaker, retry logic, graceful degradation | 📋 Planned     |
-| 8    | Load Testing          | 500+ concurrent users, <200ms P99 latency          | 📋 Planned     |
+| Week | Milestone             | Deliverable                                        | Status        |
+| ---- | --------------------- | -------------------------------------------------- | ------------- |
+| 1-2  | Connection Management | JWT auth, pool tracking, graceful shutdown         | ✅ Completed  |
+| 2-3  | Heartbeat & Presence  | Activity ping/pong, room join/leave, presence sync | � In Progress |
+| 3-4  | Distributed Locks     | Redis-backed locks, TTL, deadlock prevention       | 📋 Planned    |
+| 4-6  | Y.js CRDT             | Conflict-free editing, state synchronization       | 📋 Planned    |
+| 5-6  | RabbitMQ Broadcasting | Event pub/sub, multi-instance coordination         | 📋 Planned    |
+| 6-7  | Audit Logging         | NDJSON format, PostgreSQL persistence              | 📋 Planned    |
+| 7-8  | Error Handling        | Circuit breaker, retry logic, graceful degradation | 📋 Planned    |
+| 8    | Load Testing          | 500+ concurrent users, <200ms P99 latency          | 📋 Planned    |
 
 ### Success Criteria
 
@@ -250,7 +255,69 @@ gantt
 
 ---
 
-## 🔄 Release Strategy
+## � BE-001.1: Connection Management (Completed)
+
+**Status**: ✅ Completed (November 16, 2025)
+**Duration**: 2 weeks
+**Test Coverage**: 31/31 unit tests passing
+
+### Implementation Summary
+
+#### Step 1-4: JWT Authentication & Connection Pool ✅
+
+- JWT validation using `@nestjs/jwt` library (signature, expiration, issuer, audience)
+- Connection pool tracking (`Map<socketId, ConnectionInfo>`)
+- User connections index (`Map<userId, Set<socketId>>`)
+- Max connections per user enforcement (default: 5)
+- Pool statistics (total, unique users, by transport, stale connections)
+- Admin helpers (`forceDisconnect`, `disconnectUser`)
+- Stale connection cleanup (2x pingTimeout threshold = 40s default)
+- Graceful shutdown with `onApplicationShutdown` lifecycle hook
+- Memory leak prevention (verified in tests)
+
+#### Step 5: Transport-Level Heartbeat ✅
+
+**Socket.IO Ping/Pong Configuration** (automatic zombie detection):
+
+- `pingInterval`: Time between automatic ping frames (default 25s, configurable)
+- `pingTimeout`: Time to wait for pong before considering connection dead (default 20s, configurable)
+- Configured in `afterInit()` via `server.engine.opts`
+- Socket.IO client automatically responds to ping with pong (no application code needed)
+- Updates `lastActivityAt` in connection pool for stale cleanup integration
+
+**Architecture Decision**:
+
+- **Transport-level only** (Socket.IO built-in): Connection alive detection (TCP keepalive)
+- **Application-level deferred** (user:heartbeat): User activity tracking (mouse/keyboard) - planned for room-based lock TTL management (BE-001.2)
+
+**Why Deferred**:
+
+- No rooms implementation yet → no multi-room presence tracking needed
+- No lock TTL logic → no need for user activity timestamps per room
+- Socket.IO transport-level ping/pong sufficient for connection alive detection
+- `cleanupStaleConnections()` already uses `lastActivityAt` from Socket.IO
+
+**Future** (BE-001.2 Room Implementation):
+
+- Application-level `user:heartbeat` event for room-based activity tracking
+- Update `lastActivity` for user in all joined rooms (reference pattern)
+- Used by sweep job for lock TTL expiry warnings (15min before expiry)
+
+### Production Benefits
+
+- Real-time pool monitoring (getPoolStats)
+- Zero-downtime shutdown (SIGTERM/SIGINT handling)
+- Automatic zombie cleanup (Socket.IO ping/pong + stale detection)
+- Admin tools for connection management
+- Memory-safe disconnect handling
+
+### Technical Debt
+
+- None (all features tested and production-ready)
+
+---
+
+## �🔄 Release Strategy
 
 ### Versioning
 

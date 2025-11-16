@@ -125,13 +125,27 @@ export class WebSocketGateway
    * Gateway initialization hook
    *
    * Called once when WebSocket server is ready.
-   * Configures Socket.IO server with settings from config service.
+   * Configures Socket.IO engine with ping/pong settings for zombie connection detection.
    *
-   * @param _server - Socket.IO server instance (unused, config done in decorator)
+   * Socket.IO Transport-Level Heartbeat:
+   * - pingInterval: Time between automatic ping frames (default 25s)
+   * - pingTimeout: Time to wait for pong before considering connection dead (default 20s)
+   * - Automatic: Socket.IO client responds to ping with pong (no application code needed)
+   * - Updates lastActivityAt: Connection pool tracks last activity for stale cleanup
+   *
+   * Application-Level Heartbeat (Future):
+   * - user:heartbeat event for room-based activity tracking (lock TTL management)
+   * - Deferred to room implementation phase (BE-001.2)
+   *
+   * @param server - Socket.IO server instance
    */
-  afterInit(_server: Server): void {
-    const pingInterval = this.config.getPingInterval();
-    const pingTimeout = this.config.getPingTimeout();
+  afterInit(server: Server): void {
+    // Configure Socket.IO engine ping/pong for zombie detection
+    const pingInterval = this.config.getPingInterval() || 25000;
+    const pingTimeout = this.config.getPingTimeout() || 20000;
+
+    server.engine.opts.pingInterval = pingInterval;
+    server.engine.opts.pingTimeout = pingTimeout;
 
     console.log('[DEBUG][WS][Gateway] WebSocket Gateway initialized:', {
       namespace: this.config.getNamespace(),
@@ -142,9 +156,9 @@ export class WebSocketGateway
       timestamp: new Date().toISOString(),
     });
 
-    // Note: Socket.IO v4+ configures ping/pong via constructor options
-    // We set these in @WebSocketGateway decorator or via adapter
-    // For now, just log the configuration (actual config happens in module setup)
+    console.log(
+      `[DEBUG][WS][Gateway] Ping/Pong configured: interval=${pingInterval}ms, timeout=${pingTimeout}ms`,
+    );
   }
 
   /**

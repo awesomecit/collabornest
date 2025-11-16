@@ -179,6 +179,13 @@ async function bootstrap(): Promise<void> {
   setupSwagger(app, logger, port);
   logger.log('📚 Swagger documentation initialized at /api-docs', 'Bootstrap');
 
+  // Enable graceful shutdown hooks (SIGTERM, SIGINT)
+  app.enableShutdownHooks();
+  logger.log(
+    '🛑 Graceful shutdown hooks enabled (SIGTERM, SIGINT)',
+    'Bootstrap',
+  );
+
   // Avvio del server
   await app.listen(port);
 
