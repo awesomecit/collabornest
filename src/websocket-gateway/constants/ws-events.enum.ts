@@ -1,0 +1,49 @@
+/**
+ * WebSocket Event Names (Single Source of Truth)
+ *
+ * Centralized enum for all WebSocket event names to ensure consistency
+ * across gateway, clients, and tests. Prevents typos and enables
+ * type-safe event handling.
+ *
+ * Usage:
+ * ```typescript
+ * client.emit(WsEvent.CONNECTED, data);
+ * client.on(WsEvent.JOIN_ROOM, handler);
+ * ```
+ *
+ * @see https://socket.io/docs/v4/emitting-events/
+ */
+export enum WsEvent {
+  // Connection lifecycle events
+  CONNECTED = 'CONNECTED',
+  DISCONNECTED = 'DISCONNECTED',
+
+  // Error events
+  CONNECT_ERROR = 'connect_error',
+
+  // Room management events (BE-001.2)
+  JOIN_ROOM = 'JOIN_ROOM',
+  LEAVE_ROOM = 'LEAVE_ROOM',
+  ROOM_JOINED = 'ROOM_JOINED',
+  ROOM_LEFT = 'ROOM_LEFT',
+
+  // Presence tracking events (BE-001.2)
+  USER_JOINED = 'USER_JOINED',
+  USER_LEFT = 'USER_LEFT',
+  PRESENCE_UPDATE = 'PRESENCE_UPDATE',
+
+  // Lock management events (BE-001.3)
+  LOCK_ACQUIRED = 'LOCK_ACQUIRED',
+  LOCK_RELEASED = 'LOCK_RELEASED',
+  LOCK_STOLEN = 'LOCK_STOLEN',
+
+  // Activity tracking events (BE-001.3)
+  ACTIVITY_PING = 'ACTIVITY_PING',
+  ACTIVITY_PONG = 'ACTIVITY_PONG',
+
+  // Y.js CRDT sync events (BE-001.4)
+  SYNC_STEP_1 = 'SYNC_STEP_1',
+  SYNC_STEP_2 = 'SYNC_STEP_2',
+  SYNC_UPDATE = 'SYNC_UPDATE',
+  AWARENESS_UPDATE = 'AWARENESS_UPDATE',
+}

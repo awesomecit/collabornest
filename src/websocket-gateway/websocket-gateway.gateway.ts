@@ -8,6 +8,12 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Injectable } from '@nestjs/common';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
+import {
+  WsEvent,
+  WsErrorCode,
+  WsErrorMessage,
+  WsErrorResponse,
+} from './constants';
 
 /**
  * Connection Information
@@ -147,7 +153,10 @@ export class WebSocketGateway
 
       const decoded = this.mockDecodeJWT(token);
       if (!decoded) {
-        this.rejectConnection(client, 'JWT token invalid or expired');
+        const errorCode = !token
+          ? WsErrorCode.JWT_MISSING
+          : WsErrorCode.JWT_INVALID;
+        this.rejectConnection(client, errorCode);
         return;
       }
 
@@ -170,11 +179,20 @@ export class WebSocketGateway
     });
   }
 
-  private rejectConnection(client: Socket, message: string): void {
-    console.error('[DEBUG][WS][Gateway] JWT validation failed:', {
+  private rejectConnection(client: Socket, errorCode: WsErrorCode): void {
+    const errorResponse: WsErrorResponse = {
+      code: errorCode,
+      message: WsErrorMessage[errorCode],
+      timestamp: new Date().toISOString(),
+    };
+
+    console.error('[DEBUG][WS][Gateway] Connection rejected:', {
       socketId: client.id,
+      errorCode,
+      message: errorResponse.message,
     });
-    client.emit('connect_error', { message });
+
+    client.emit(WsEvent.CONNECT_ERROR, errorResponse);
     client.disconnect(true);
   }
 
@@ -189,9 +207,14 @@ export class WebSocketGateway
         maxConnections,
       });
 
-      client.emit('connect_error', {
-        message: `Maximum ${maxConnections} connections per user exceeded`,
-      });
+      const errorResponse: WsErrorResponse = {
+        code: WsErrorCode.MAX_CONNECTIONS_EXCEEDED,
+        message: WsErrorMessage[WsErrorCode.MAX_CONNECTIONS_EXCEEDED],
+        timestamp: new Date().toISOString(),
+        details: { maxConnections, currentConnections: userSocketIds.size },
+      };
+
+      client.emit(WsEvent.CONNECT_ERROR, errorResponse);
       client.disconnect(true);
       return false;
     }
@@ -230,7 +253,7 @@ export class WebSocketGateway
       userConnections: userSocketIds.size,
     });
 
-    client.emit('CONNECTED', {
+    client.emit(WsEvent.CONNECTED, {
       socketId: client.id,
       userId: decoded.userId,
       timestamp: connectionInfo.connectedAt,
@@ -244,7 +267,13 @@ export class WebSocketGateway
       stack: error.stack,
     });
 
-    client.emit('connect_error', { message: 'Internal server error' });
+    const errorResponse: WsErrorResponse = {
+      code: WsErrorCode.INTERNAL_SERVER_ERROR,
+      message: WsErrorMessage[WsErrorCode.INTERNAL_SERVER_ERROR],
+      timestamp: new Date().toISOString(),
+    };
+
+    client.emit(WsEvent.CONNECT_ERROR, errorResponse);
     client.disconnect(true);
   }
 

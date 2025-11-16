@@ -571,6 +571,49 @@ src/
 - DRY: Don't Repeat Yourself
 - Clean Code: Readable, maintainable
 - YAGNI: You Aren't Gonna Need It - no speculative code
+- **Single Source of Truth (SSOT)**: All constants, events, error codes in enums
+
+### Single Source of Truth (SSOT) for Constants
+
+**WHY**: Prevent typos, enable refactoring, type-safety, consistent error handling
+
+**ENFORCE**: All magic strings/numbers must be defined in enums or constants
+
+**WebSocket Events & Error Codes Example**:
+
+```typescript
+// ✅ GOOD: Use enums (Single Source of Truth)
+import { WsEvent, WsErrorCode, WsErrorMessage } from './constants';
+
+client.emit(WsEvent.CONNECTED, data);
+client.emit(WsEvent.CONNECT_ERROR, {
+  code: WsErrorCode.JWT_INVALID,
+  message: WsErrorMessage[WsErrorCode.JWT_INVALID],
+});
+
+// ❌ BAD: Magic strings (typo-prone, no autocomplete)
+client.emit('CONNECTED', data);
+client.emit('connect_error', { message: 'JWT token invalid' });
+```
+
+**Where to Define Enums**:
+
+- WebSocket: `src/websocket-gateway/constants/` (WsEvent, WsErrorCode, WsErrorMessage)
+- HTTP: `src/common/constants/` (HttpStatus, ErrorCodes)
+- Domain: Within bounded context (e.g., `src/surgical-operation/constants/`)
+
+**ESLint Enforcement**:
+
+- `sonarjs/no-duplicate-string` (threshold: 3) - catches magic strings
+- Manual code review for event names and error codes
+- All hardcoded strings must have justification in PR review
+
+**Exceptions** (when magic strings allowed):
+
+- Test files (`.spec.ts`) for readability
+- Enum definition files themselves
+- Log messages (structured logging context)
+- Environment variable names (centralized in config service)
 
 ### Testing Approach
 
@@ -916,11 +959,13 @@ Result: Feature complete, tested, understood
 ## 🔐 OWASP Secure Software Development Lifecycle – Copilot Guidance
 
 ### **Security-Driven Development (OWASP S-SDLC Guidelines)**
+
 Quando generi codice, commenti, refactoring o suggerimenti architetturali, applica sempre i seguenti principi:
 
 ---
 
 ### **1. Structured Code Review**
+
 - Proponi miglioramenti per rendere il codice più leggibile, sicuro e manutenibile.
 - Evidenzia potenziali vulnerabilità (es. input non validati, injection, mancanza di controlli, error handling debole).
 - Suggerisci sempre alternative più robuste quando individui punti critici.
@@ -928,6 +973,7 @@ Quando generi codice, commenti, refactoring o suggerimenti architetturali, appli
 ---
 
 ### **2. Static & Dynamic Analysis Support (SAST/DAST Awareness)**
+
 - Scrivi codice e test pensando a facilitare l’analisi statica (SAST) e dinamica (DAST).
 - Evita pattern che possano generare falsi positivi comuni.
 - Quando possibile, suggerisci l’aggiunta di test automatici che coprano percorsi critici o input non validi.
@@ -935,6 +981,7 @@ Quando generi codice, commenti, refactoring o suggerimenti architetturali, appli
 ---
 
 ### **3. Dependency Security Management**
+
 - Segnala dipendenze non aggiornate o potenzialmente vulnerabili.
 - Suggerisci alternative più sicure o versioni LTS.
 - Evita l’introduzione di librerie non necessarie o di bassa affidabilità.
@@ -943,7 +990,9 @@ Quando generi codice, commenti, refactoring o suggerimenti architetturali, appli
 ---
 
 ### **4. Threat Modeling Assistance**
+
 Durante la generazione di nuovo codice, valuta possibili minacce:
+
 - superfici d’attacco,
 - esposizione dati sensibili,
 - autorizzazioni eccessive,
@@ -954,6 +1003,7 @@ Proponi mitigazioni pratiche e integrate nel flusso di sviluppo.
 ---
 
 ### **5. Periodic Security Review Reminder**
+
 - Ogni volta che il codice di una stessa area evolve, ricorda la necessità di una revisione di sicurezza periodica.
 - Suggerisci audit, refactoring di sicurezza e analisi delle dipendenze almeno su base regolare.
 - Evidenzia quando un cambiamento può richiedere una nuova valutazione delle minacce.
@@ -961,4 +1011,5 @@ Proponi mitigazioni pratiche e integrate nel flusso di sviluppo.
 ---
 
 ### **🎯 Obiettivo generale**
+
 Garantire che Copilot generi codice che sia **sicuro by design**, riduca la superficie d’attacco, mantenga la sicurezza della supply-chain e aderisca alle best practice **OWASP S-SDLC**.

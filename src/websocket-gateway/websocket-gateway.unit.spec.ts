@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebSocketGateway, ConnectionInfo } from './websocket-gateway.gateway';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
+import { WsEvent, WsErrorCode } from './constants';
 import { Socket } from 'socket.io';
 
 /**
@@ -179,7 +180,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       expect(mockClient.disconnect).not.toHaveBeenCalled();
       expect(gateway.hasConnection(mockClient.id!)).toBe(true);
       expect(mockClient.emit).toHaveBeenCalledWith(
-        'CONNECTED',
+        WsEvent.CONNECTED,
         expect.objectContaining({
           socketId: mockClient.id,
           userId: 'valid-user',
@@ -212,8 +213,10 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       expect(mockClient.disconnect).toHaveBeenCalledWith(true);
       expect(gateway.hasConnection(mockClient.id!)).toBe(false);
       expect(mockClient.emit).toHaveBeenCalledWith(
-        'connect_error',
-        expect.any(Object),
+        WsEvent.CONNECT_ERROR,
+        expect.objectContaining({
+          code: WsErrorCode.JWT_INVALID,
+        }),
       );
 
       console.log('[DEBUG][WS][Unit] Expired JWT rejected successfully');
@@ -232,6 +235,12 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       // THEN
       expect(mockClient.disconnect).toHaveBeenCalledWith(true);
       expect(gateway.hasConnection(mockClient.id!)).toBe(false);
+      expect(mockClient.emit).toHaveBeenCalledWith(
+        WsEvent.CONNECT_ERROR,
+        expect.objectContaining({
+          code: WsErrorCode.JWT_MISSING,
+        }),
+      );
 
       console.log('[DEBUG][WS][Unit] Missing JWT rejected successfully');
     });
@@ -285,9 +294,9 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       // THEN extra connection should be rejected
       expect(extraClient.disconnect).toHaveBeenCalledWith(true);
       expect(extraClient.emit).toHaveBeenCalledWith(
-        'connect_error',
+        WsEvent.CONNECT_ERROR,
         expect.objectContaining({
-          message: expect.stringContaining('Maximum'),
+          code: WsErrorCode.MAX_CONNECTIONS_EXCEEDED,
         }),
       );
       expect(gateway.getConnectionsByUserId('limit-user').length).toBe(

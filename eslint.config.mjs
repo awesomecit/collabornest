@@ -70,6 +70,13 @@ export default tseslint.config(
       'sonarjs/no-same-line-conditional': 'error', // No condizionali sulla stessa riga
       'sonarjs/no-useless-catch': 'error', // No catch inutili
 
+      // 🔐 SINGLE SOURCE OF TRUTH - WebSocket Events & Error Codes
+      // Enforce usage of enums for WebSocket events and error codes
+      // Magic strings allowed only in enum definitions and test files
+      'no-magic-numbers': 'off', // Numbers are OK (ports, timeouts, etc.)
+      // Note: no-magic-strings requires manual code review or custom plugin
+      // Developers must use WsEvent, WsErrorCode, WsErrorMessage enums
+
       // 🎯 TYPESCRIPT (più permissivo per NestJS)
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': ['error', {
