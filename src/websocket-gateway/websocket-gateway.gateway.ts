@@ -7,6 +7,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { JwtMockService } from './auth/jwt-mock.service';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import {
   WsErrorCode,
@@ -111,7 +112,10 @@ export class WebSocketGateway
    */
   private readonly userConnections = new Map<string, Set<string>>();
 
-  constructor(private readonly config: WebSocketGatewayConfigService) {}
+  constructor(
+    private readonly config: WebSocketGatewayConfigService,
+    private readonly jwtService: JwtMockService,
+  ) {}
 
   /**
    * Gateway initialization hook
@@ -142,7 +146,16 @@ export class WebSocketGateway
   /**
    * Handle new client connection
    *
-   * Validates JWT, checks max connections, adds to pool.
+   * Authentication flow:
+   * 1. Extract JWT from handshake.auth.token
+   * 2. Validate with JwtMockService (signature, expiration, issuer, audience)
+   * 3. Check max connections per user
+   * 4. Add to connection pool and emit CONNECTED event
+   *
+   * Error handling:
+   * - Missing token: Emit WsErrorCode.JWT_MISSING
+   * - Invalid/expired token: Emit WsErrorCode.JWT_INVALID or WsErrorCode.JWT_EXPIRED
+   * - Max connections exceeded: Disconnect silently (client receives 'disconnect' event)
    *
    * @param client - Socket.IO client socket
    */
@@ -151,20 +164,32 @@ export class WebSocketGateway
       const token = client.handshake.auth?.token;
       this.logConnectionAttempt(client, token);
 
-      const decoded = this.mockDecodeJWT(token);
-      if (!decoded) {
-        const errorCode = !token
-          ? WsErrorCode.JWT_MISSING
-          : WsErrorCode.JWT_INVALID;
-        this.rejectConnection(client, errorCode);
+      // Step 1: Validate JWT token
+      if (!token) {
+        this.rejectConnection(client, WsErrorCode.JWT_MISSING);
         return;
       }
 
-      if (!this.checkMaxConnections(client, decoded.userId)) {
+      let validatedUser;
+      try {
+        validatedUser = await this.jwtService.validateToken(token);
+      } catch (validationError) {
+        // JWT validation threw UnauthorizedException
+        console.error('[DEBUG][WS][Gateway] JWT validation error:', {
+          socketId: client.id,
+          error: (validationError as Error).message,
+        });
+        this.rejectConnection(client, WsErrorCode.JWT_INVALID);
         return;
       }
 
-      this.addToConnectionPool(client, decoded);
+      // Step 2: Check max connections per user
+      if (!this.checkMaxConnections(client, validatedUser.userId)) {
+        return;
+      }
+
+      // Step 3: Add to connection pool
+      this.addToConnectionPool(client, validatedUser);
     } catch (error) {
       this.handleConnectionError(client, error);
     }
@@ -218,13 +243,13 @@ export class WebSocketGateway
 
   private addToConnectionPool(
     client: Socket,
-    decoded: { userId: string; username: string; email: string },
+    validatedUser: { userId: string; username: string; email?: string },
   ): void {
     const connectionInfo: ConnectionInfo = {
       socketId: client.id!,
-      userId: decoded.userId,
-      username: decoded.username,
-      email: decoded.email,
+      userId: validatedUser.userId,
+      username: validatedUser.username,
+      email: validatedUser.email || 'unknown',
       transport: client.conn.transport.name,
       ipAddress: client.handshake.address,
       userAgent: client.handshake.headers['user-agent'] || 'unknown',
@@ -234,14 +259,15 @@ export class WebSocketGateway
 
     this.connectionPool.set(client.id!, connectionInfo);
 
-    const userSocketIds = this.userConnections.get(decoded.userId) || new Set();
+    const userSocketIds =
+      this.userConnections.get(validatedUser.userId) || new Set();
     userSocketIds.add(client.id!);
-    this.userConnections.set(decoded.userId, userSocketIds);
+    this.userConnections.set(validatedUser.userId, userSocketIds);
 
     console.log('[DEBUG][WS][Gateway] Client connected successfully:', {
       socketId: client.id,
-      userId: decoded.userId,
-      username: decoded.username,
+      userId: validatedUser.userId,
+      username: validatedUser.username,
       transport: connectionInfo.transport,
       totalConnections: this.connectionPool.size,
       userConnections: userSocketIds.size,
@@ -249,7 +275,7 @@ export class WebSocketGateway
 
     client.emit(WsEvent.CONNECTED, {
       socketId: client.id,
-      userId: decoded.userId,
+      userId: validatedUser.userId,
       timestamp: connectionInfo.connectedAt,
     });
   }
@@ -313,59 +339,6 @@ export class WebSocketGateway
       userId: connectionInfo.userId,
       userConnections: userSocketIds?.size || 0,
     });
-  }
-
-  /**
-   * Mock JWT decoder for TDD (temporary)
-   *
-   * TODO: Replace with real JWT validation using @nestjs/jwt
-   * - Verify signature with public key
-   * - Check expiration (exp claim)
-   * - Validate issuer (iss claim)
-   *
-   * @param token - JWT token string
-   * @returns Decoded JWT payload or null if invalid
-   */
-  private mockDecodeJWT(token: string): {
-    userId: string;
-    username: string;
-    email: string;
-  } | null {
-    if (!token) {
-      return null;
-    }
-
-    try {
-      // Basic JWT format validation
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return null;
-      }
-
-      // Decode payload (Base64)
-      const payload = JSON.parse(
-        Buffer.from(parts[1], 'base64').toString('utf8'),
-      );
-
-      // Check expiration
-      const now = Math.floor(Date.now() / 1000);
-      if (payload.exp && payload.exp < now) {
-        console.warn('[DEBUG][WS][Gateway] JWT token expired:', {
-          exp: payload.exp,
-          now,
-        });
-        return null;
-      }
-
-      return {
-        userId: payload.sub,
-        username: payload.preferred_username,
-        email: payload.email,
-      };
-    } catch (error) {
-      console.error('[DEBUG][WS][Gateway] JWT decode error:', error.message);
-      return null;
-    }
   }
 
   // ==================== Test Helper Methods ====================

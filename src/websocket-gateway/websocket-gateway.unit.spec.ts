@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Socket } from 'socket.io';
+import { JwtMockService } from './auth/jwt-mock.service';
+import { ValidatedUser } from './auth/jwt-payload.interface';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { WsEvent } from './constants';
 import { WebSocketGateway } from './websocket-gateway.gateway';
@@ -72,12 +74,47 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       getTransports: jest.fn().mockReturnValue(['websocket', 'polling']),
     };
 
+    const mockJwtService = {
+      validateToken: jest
+        .fn()
+        .mockImplementation(async (token: string): Promise<ValidatedUser> => {
+          // Parse mock JWT token
+          const parts = token.split('.');
+          if (parts.length !== 3) {
+            throw new Error('Invalid JWT format');
+          }
+
+          const payload = JSON.parse(
+            Buffer.from(parts[1], 'base64').toString('utf8'),
+          );
+
+          // Check expiration
+          const now = Math.floor(Date.now() / 1000);
+          if (payload.exp && payload.exp < now) {
+            throw new Error('JWT expired');
+          }
+
+          return {
+            userId: payload.sub,
+            username: payload.preferred_username,
+            email: payload.email,
+            fullName: undefined,
+            roles: [],
+            payload,
+          };
+        }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebSocketGateway,
         {
           provide: WebSocketGatewayConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: JwtMockService,
+          useValue: mockJwtService,
         },
       ],
     }).compile();
