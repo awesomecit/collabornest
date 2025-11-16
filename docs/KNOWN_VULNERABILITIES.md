@@ -138,7 +138,8 @@ npm audit --omit=dev
 
 **Result**: `2 moderate vulnerabilities` (js-yaml via @nestjs/swagger)
 
-**Risk Assessment**: 
+**Risk Assessment**:
+
 - **Severity**: Moderate (not critical/high)
 - **Exploitability**: Low (documentation generation only)
 - **Impact**: Minimal (no user data processing)
