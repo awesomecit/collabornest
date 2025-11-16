@@ -36,6 +36,7 @@ module.exports = {
         'entities',
         'controllers',
         'services',
+        'websocket',
         'release',
         'deps',
       ],

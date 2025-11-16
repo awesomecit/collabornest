@@ -17,6 +17,7 @@ export default tseslint.config(
       'node_modules/**/*',
       'coverage/**/*',
       'reports/**/*',
+      'reference/**/*',
       '*.config.js',
       '**/*.spec.ts',
       '**/*.test.ts',

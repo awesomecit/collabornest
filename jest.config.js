@@ -20,6 +20,7 @@ module.exports = {
   // Escludi integration e e2e tests dagli unit tests
   testPathIgnorePatterns: [
     '/node_modules/',
+    '/reference/',
     '\\.integration\\.spec\\.ts$',
     '\\.e2e\\.spec\\.ts$',
   ],
@@ -44,6 +45,7 @@ module.exports = {
     '!src/**/*.interface.ts',
     '!src/**/*.enum.ts',
     '!src/**/*.dto.ts',
+    '!reference/**/*',
   ],
 
   // Coverage thresholds - Sviluppo incrementale: soglie adattate al coverage attuale
