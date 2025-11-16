@@ -27,6 +27,7 @@ export default () => ({
   port: getEnvInt('PORT', 3000),
   nodeEnv: getEnvVar('NODE_ENV', 'test'),
   database: {
+    enabled: getEnvVar('DATABASE_ENABLED', 'false') === 'true',
     host: getEnvVar('DATABASE_HOST', 'localhost'),
     port: getEnvInt('DATABASE_PORT', 5432),
     username: getEnvVar('DATABASE_USERNAME', 'postgres'),

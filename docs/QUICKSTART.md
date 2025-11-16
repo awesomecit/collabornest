@@ -1,520 +1,463 @@
-# Quickstart Guide
+# QUICKSTART - Backend Setup per UI Developer (15 minuti)
 
-> **Goal**: Get from zero to your first commit in 15 minutes.
+> **Target**: Junior UI developer che deve tirare su il backend CollaborNest in locale per sviluppare il frontend.
 
-## What You'll Learn
+## Obiettivo
 
-- ✅ Setup development environment
-- ✅ Run your first tests
-- ✅ Make a code change
-- ✅ Create your first commit (with git hooks validation)
-- ✅ Understand project structure
+Avviare il **backend NestJS con WebSocket** funzionante in locale **senza database**, pronto per connessioni frontend.
 
-## Prerequisites Check
+**Cosa otterrai:**
 
-Before starting, verify you have:
-
-```bash
-# Check Node.js version (must be >= 20.8.0)
-node -v
-
-# Check npm version (must be >= 10.0.0)
-npm -v
-
-# Check Git
-git --version
-
-# Check Docker (optional, for database tests)
-docker --version
-```
-
-**Missing something?**
-
-- **Node.js**: Download from [nodejs.org](https://nodejs.org/) (LTS version)
-- **Docker**: Download from [docker.com](https://www.docker.com/get-started)
-
-## Step 1: Clone and Install (2 min)
-
-```bash
-# Clone repository
-git clone <your-repo-url>
-cd nestjs-template-generator
-
-# Install dependencies
-npm install
-
-# Expected output:
-# added XXX packages in XXs
-```
-
-**What just happened?**
-
-- Installed all dependencies from `package.json`
-- Husky git hooks were automatically setup (`npm run prepare`)
-- `node_modules/` folder created
-
-## Step 2: Verify Setup (3 min)
-
-```bash
-# Run full verification
-npm run verify
-```
-
-**This runs 4 checks:**
-
-1. ✅ **Format check**: Prettier validates code style
-2. ✅ **Lint check**: ESLint validates code quality
-3. ✅ **Tests**: Jest runs all unit tests (112 tests)
-4. ✅ **Build**: TypeScript compiles to JavaScript
-
-**Expected output:**
-
-```text
-> format:check
-All matched files use Prettier code style! ✅
-
-> lint:check
-(no output = success) ✅
-
-> test
-Test Suites: 11 passed, 11 total
-Tests:       112 passed, 112 total ✅
-
-> build
-(TypeScript compilation successful) ✅
-```
-
-**Troubleshooting:**
-
-```bash
-# If tests fail:
-rm -rf node_modules package-lock.json
-npm install
-
-# If build fails:
-rm -rf dist
-npm run build
-```
-
-## Step 3: Explore Project Structure (2 min)
-
-```text
-nestjs-template-generator/
-├── src/                  # Source code
-│   ├── common/           # Shared utilities (logger, filters, interceptors)
-│   ├── config/           # Configuration and env validation
-│   ├── health/           # Health check endpoints
-│   ├── swagger/          # API documentation
-│   └── main.ts           # Application entry point
-│
-├── test/                 # E2E and integration tests
-├── scripts/              # Automation scripts (release, complexity analysis)
-├── docs/                 # Documentation
-│   └── project/          # Project management (BACKLOG, ROADMAP)
-│
-├── .husky/               # Git hooks (pre-commit, commit-msg)
-├── .env.example          # Environment template
-├── docker-compose.yml    # PostgreSQL for development
-│
-├── package.json          # Dependencies and scripts
-├── tsconfig.json         # TypeScript configuration
-├── jest.config.js        # Test configuration (unit tests)
-├── eslint.config.mjs     # Linting rules
-│
-├── README.md             # Project overview
-├── CONTRIBUTING.md       # How to contribute
-└── QUICKSTART.md         # This file!
-```
-
-**Key files to know:**
-
-- `src/main.ts`: Where the app starts
-- `package.json`: All npm scripts live here
-- `.env.example`: Copy to `.env` for local config
-- `CONTRIBUTING.md`: Detailed development workflow
-
-## Step 4: Make Your First Change (3 min)
-
-Let's add a simple feature to practice the workflow.
-
-### Example: Add a new endpoint to AppController
-
-1. **Open the file:**
-
-   ```bash
-   # Edit src/app.controller.ts
-   ```
-
-2. **Add a new method:**
-
-   ```typescript
-   @Get('ping')
-   ping(): string {
-     return 'pong';
-   }
-   ```
-
-3. **Add a test:**
-
-   ```bash
-   # Edit src/app.controller.spec.ts
-   ```
-
-   ```typescript
-   it('should return "pong" from /ping endpoint', () => {
-     expect(appController.ping()).toBe('pong');
-   });
-   ```
-
-4. **Run tests to verify:**
-
-   ```bash
-   npm test -- src/app.controller.spec.ts
-
-   # Expected:
-   # PASS src/app.controller.spec.ts
-   # ✓ should return "pong" from /ping endpoint
-   ```
-
-## Step 5: Commit Your Change (5 min)
-
-Now let's commit following project conventions.
-
-**Understanding Git Hooks:**
-
-When you run `git commit`, two hooks automatically run:
-
-1. **pre-commit**: Formats and lints your code
-2. **commit-msg**: Validates commit message format
-
-**Commit format required:**
-
-```text
-<type>(<scope>): <subject>
-
-Examples:
-feat(api): add ping endpoint
-fix(auth): resolve token expiration bug
-docs(readme): update installation steps
-```
-
-**Let's commit:**
-
-```bash
-# 1. Stage your changes
-git add src/app.controller.ts src/app.controller.spec.ts
-
-# 2. Commit with conventional format
-git commit -m "feat(api): add ping endpoint for health check"
-
-# Expected output:
-# Running pre-commit checks...
-# ✔ Formatting and linting...
-# ✔ Validating commit message...
-# [main abc1234] feat(api): add ping endpoint for health check
-```
-
-**Common commit errors:**
-
-```bash
-# ❌ Bad: No type
-git commit -m "added ping endpoint"
-# Error: subject may not be empty [subject-empty]
-
-# ❌ Bad: Subject too long (>72 chars)
-git commit -m "feat(api): add a really long description that exceeds..."
-# Error: subject must not be longer than 72 characters [subject-max-length]
-
-# ✅ Good: Follows conventions
-git commit -m "feat(api): add ping endpoint"
-```
-
-## Step 6: Run Development Server (Optional)
-
-```bash
-# Start development server with hot reload
-npm run start:dev
-
-# Expected output:
-# [Nest] 12345  - 15/11/2025, 13:00:00   LOG [NestFactory] Starting Nest application...
-# [Nest] 12345  - 15/11/2025, 13:00:00   LOG [InstanceLoader] AppModule dependencies initialized
-# [Nest] 12345  - 15/11/2025, 13:00:00   LOG [NestApplication] Nest application successfully started
-# [Nest] 12345  - 15/11/2025, 13:00:00   LOG Application is running on: http://localhost:3000
-```
-
-**Test your endpoint:**
-
-```bash
-# In another terminal:
-curl http://localhost:3000/ping
-
-# Expected: pong
-```
-
-**Access Swagger docs:**
-
-Open browser: `http://localhost:3000/api`
-
-**Stop server:**
-
-Press `Ctrl + C`
-
-## Quick Reference Commands
-
-### Everyday Development
-
-```bash
-# Run tests (fast, no database)
-npm test
-
-# Run tests in watch mode (TDD)
-npm run test:watch
-
-# Format and lint code
-npm run quality:fix
-
-# Check code quality
-npm run quality
-
-# Build project
-npm run build
-
-# Start development server
-npm run start:dev
-```
-
-### Testing with Database
-
-```bash
-# Start PostgreSQL
-docker-compose up -d
-
-# Run integration tests (safe mode)
-npm run test:integration:safe
-
-# Run E2E tests (safe mode)
-npm run test:e2e:safe
-
-# Stop database
-docker-compose down
-```
-
-### Quality Analysis
-
-```bash
-# Analyze cognitive complexity
-npm run analyze
-
-# Generate complexity report
-npm run analyze:report
-
-# View report
-cat reports/complexity-report.json
-```
-
-### Git Workflow
-
-```bash
-# Create feature branch
-git checkout -b feature/my-feature
-
-# Make changes, then commit
-git add .
-git commit -m "feat(scope): description"
-
-# Push to remote
-git push -u origin feature/my-feature
-
-# Create Pull Request on GitHub
-```
-
-## Next Steps
-
-Now that you're set up, here's what to explore:
-
-1. **Read CONTRIBUTING.md** - Full development workflow, testing strategy, PR process
-2. **Check docs/project/BACKLOG.md** - Known issues and future features
-3. **Explore src/common/** - Reusable utilities (logger, filters, interceptors)
-4. **Try release workflow** - `npm run release:suggest` (preview releases)
-5. **Review .husky-config.json** - Customize git hooks behavior
-
-## Understanding Test Types
-
-**When to use each:**
-
-```bash
-# Unit Tests (*.spec.ts)
-# - Test isolated logic
-# - No database, no HTTP
-# - Fast (<5s total)
-npm test
-
-# Integration Tests (*.integration.spec.ts)
-# - Test database operations
-# - Requires PostgreSQL running
-# - Medium speed (~30s total)
-npm run test:integration:safe
-
-# E2E Tests (test/*.e2e.spec.ts)
-# - Test complete user workflows
-# - Full stack: HTTP + DB
-# - Slower (~60s total)
-npm run test:e2e:safe
-```
-
-## Common Workflows
-
-### Adding a New Feature
-
-```bash
-# 1. Create branch
-git checkout -b feature/user-authentication
-
-# 2. Write failing test (TDD)
-npm run test:watch
-
-# 3. Implement feature
-# ... edit code ...
-
-# 4. Ensure tests pass
-npm test
-
-# 5. Check quality
-npm run quality:fix
-
-# 6. Commit
-git add .
-git commit -m "feat(auth): add JWT authentication"
-
-# 7. Push and create PR
-git push -u origin feature/user-authentication
-```
-
-### Fixing a Bug
-
-```bash
-# 1. Create branch
-git checkout -b fix/user-login-crash
-
-# 2. Write regression test
-# ... add test that reproduces bug ...
-
-# 3. Fix the bug
-# ... edit code ...
-
-# 4. Verify fix
-npm test
-
-# 5. Commit
-git commit -m "fix(auth): prevent crash on invalid credentials"
-
-# 6. Push
-git push
-```
-
-### Refactoring Code
-
-```bash
-# 1. Check current complexity
-npm run analyze:cognitive
-
-# 2. Refactor code
-# ... extract methods, reduce nesting ...
-
-# 3. Ensure tests still pass
-npm test
-
-# 4. Verify complexity improved
-npm run analyze:cognitive
-
-# 5. Commit
-git commit -m "refactor(auth): reduce login complexity from 15 to 8"
-```
-
-## Troubleshooting Common Issues
-
-### "Cannot find module '@nestjs/core'"
-
-```bash
-# Solution: Reinstall dependencies
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### "Tests failing after git pull"
-
-```bash
-# Solution: Update dependencies
-npm install
-
-# Clean build
-rm -rf dist
-npm run build
-```
-
-### "Commit rejected by commitlint"
-
-```bash
-# Check your commit message format
-# Must be: type(scope): subject
-
-# Valid types: feat, fix, docs, refactor, test, chore, perf, ci
-
-# Examples:
-git commit -m "feat(api): add user endpoint"    # ✅
-git commit -m "fix(db): resolve connection leak" # ✅
-git commit -m "Updated stuff"                   # ❌
-```
-
-### "Database connection failed"
-
-```bash
-# 1. Check Docker is running
-docker ps
-
-# 2. Start database
-docker-compose up -d
-
-# 3. Check logs
-docker-compose logs app-database
-
-# 4. Verify connection
-npm run test:integration:safe
-```
-
-### "Port 3000 already in use"
-
-```bash
-# Find process using port 3000
-lsof -i :3000
-
-# Kill process
-kill -9 <PID>
-
-# Or change port in .env
-echo "PORT=3001" >> .env
-```
-
-## Getting Help
-
-**Stuck? Here's where to look:**
-
-1. **README.md** - Project overview and features
-2. **CONTRIBUTING.md** - Detailed development guide
-3. **docs/project/BACKLOG.md** - Known issues and workarounds
-4. **GitHub Issues** - Search existing issues
-5. **Error messages** - Read carefully, often self-explanatory
-
-**Still stuck?**
-
-- Open a GitHub issue with:
-  - What you tried
-  - Expected vs actual result
-  - Error message (full output)
-  - Environment (OS, Node version)
+- ✅ Backend su `http://localhost:3000`
+- ✅ WebSocket Gateway su `ws://localhost:3000/ws/socket.io`
+- ✅ Presence tracking (multi-user awareness) funzionante
+- ✅ Test automatici per validare setup
 
 ---
 
-**Congratulations!** 🎉 You're ready to contribute to the project.
+## Prerequisiti (2 minuti)
 
-**Next**: Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the complete development workflow.
+Verifica di avere installato:
+
+```bash
+node --version  # Deve essere >= 18.x
+npm --version   # Deve essere >= 9.x
+```
+
+**Se mancano:**
+
+- **Node.js**: Scarica da [nodejs.org](https://nodejs.org/) (versione LTS)
+- Include automaticamente npm
+
+---
+
+## Step 1: Clone e Installazione (3 minuti)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-org/collabornest.git
+cd collabornest
+
+# 2. Installa dipendenze
+npm install
+
+# Output atteso:
+# added XXX packages in 30-60s
+```
+
+**Cosa è successo?**
+
+- Installate tutte le dipendenze da `package.json`
+- Git hooks configurati automaticamente (Husky)
+- Cartella `node_modules/` creata (~200MB)
+
+---
+
+## Step 2: Configurazione Ambiente (2 minuti)
+
+**Crea file `.env` dalla template:**
+
+```bash
+cp .env.example .env
+```
+
+**Modifica `.env` con editor di testo** (VS Code, nano, vim):
+
+```bash
+# Porta del server
+PORT=3000
+
+# Database - IMPORTANTE: DISABILITATO per sviluppo rapido
+DATABASE_ENABLED=false
+
+# JWT Secret (usa questo per test)
+JWT_SECRET=your-secret-key-here
+
+# Logging
+LOG_LEVEL=info
+NODE_ENV=development
+```
+
+> ⚠️ **CRITICO**: `DATABASE_ENABLED=false` permette di far partire il backend **senza PostgreSQL installato**. Il WebSocket Gateway funziona lo stesso!
+
+---
+
+## Step 3: Avvio Server (2 minuti)
+
+```bash
+npm run start:dev
+```
+
+**Output atteso (entro 10 secondi):**
+
+```bash
+[Nest] INFO  [NestFactory] Starting Nest application...
+[Nest] INFO  [InstanceLoader] AppModule dependencies initialized
+[Nest] INFO  [WebSocketGateway] WebSocket Gateway initialized on path: /ws/socket.io
+[Nest] INFO  [NestApplication] Nest application successfully started
+[Nest] INFO  Application is running on: http://localhost:3000
+```
+
+✅ **Il backend è pronto!** Lascia questo terminale aperto.
+
+---
+
+## Step 4: Test Connessione WebSocket (3 minuti)
+
+### Opzione A: Test Rapido (Browser Console)
+
+1. Apri **Chrome DevTools** (F12)
+2. Vai su tab **Console**
+3. Copia-incolla questo codice:
+
+```javascript
+// Carica Socket.IO client
+const script = document.createElement('script');
+script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
+document.head.appendChild(script);
+
+// Dopo 1 secondo, connetti al backend
+setTimeout(() => {
+  const socket = io('http://localhost:3000/collaboration', {
+    path: '/ws/socket.io',
+    transports: ['websocket', 'polling'],
+    auth: {
+      token:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ0ZXN0LXVzZXItMSIsImVtYWlsIjoidGVzdEB0ZXN0LmNvbSIsImlhdCI6MTczMTc1MzYwMCwiZXhwIjoyODk0OTUzNjAwfQ.6xHmJR5HkL2zYvhT3jX8YxGxX2aQZ3Fqp0RzLxYxGxM',
+    },
+  });
+
+  socket.on('connected', data => {
+    console.log('✅ WebSocket connesso!', data);
+  });
+
+  socket.on('connect_error', error => {
+    console.error('❌ Errore:', error.message);
+  });
+}, 1000);
+```
+
+**Output atteso nella console:**
+
+```bash
+✅ WebSocket connesso! { userId: 'test-user-1', socketId: 'xyz123...' }
+```
+
+### Opzione B: Test Completo (BDD Tests)
+
+```bash
+# Apri un NUOVO terminale (lascia start:dev aperto)
+npm run test:bdd
+```
+
+**Output atteso:**
+
+```bash
+Running BDD tests...
+
+✅ BE-001.1 Connection Management (6 scenarios) - PASS
+✅ BE-001.2 Presence Tracking (7 scenarios) - PASS
+
+Summary: 13/13 scenarios passed in 5.99s
+```
+
+---
+
+## Step 5: Integrazione con Frontend
+
+### Setup React/Vue/Angular
+
+**1. Installa Socket.IO client nel progetto frontend:**
+
+```bash
+# Nel tuo progetto UI
+npm install socket.io-client
+```
+
+**2. Crea service WebSocket (`websocket.service.ts`):**
+
+```typescript
+import { io, Socket } from 'socket.io-client';
+
+export class WebSocketService {
+  private socket: Socket | null = null;
+
+  connect(jwtToken: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.socket = io('http://localhost:3000/collaboration', {
+        path: '/ws/socket.io',
+        transports: ['websocket', 'polling'],
+        auth: { token: jwtToken },
+      });
+
+      this.socket.on('connected', data => {
+        console.log('Connected:', data);
+        resolve();
+      });
+
+      this.socket.on('connect_error', error => {
+        reject(error);
+      });
+    });
+  }
+
+  joinResource(resourceId: string, mode: 'editor' | 'viewer'): void {
+    this.socket?.emit('resource:join', { resourceId, mode });
+  }
+
+  onUserJoined(callback: (data: any) => void): void {
+    this.socket?.on('user:joined', callback);
+  }
+
+  onUserLeft(callback: (data: any) => void): void {
+    this.socket?.on('user:left', callback);
+  }
+
+  leaveResource(resourceId: string): void {
+    this.socket?.emit('resource:leave', { resourceId });
+  }
+
+  disconnect(): void {
+    this.socket?.disconnect();
+  }
+}
+```
+
+**3. Esempio React Hook:**
+
+```typescript
+import { useEffect, useState } from 'react';
+import { WebSocketService } from './websocket.service';
+
+export function useCollaboration(resourceId: string, jwtToken: string) {
+  const [users, setUsers] = useState<any[]>([]);
+  const ws = new WebSocketService();
+
+  useEffect(() => {
+    ws.connect(jwtToken).then(() => {
+      ws.joinResource(resourceId, 'editor');
+    });
+
+    ws.onUserJoined(data => {
+      setUsers(prev => [...prev, data.user]);
+    });
+
+    ws.onUserLeft(data => {
+      setUsers(prev => prev.filter(u => u.userId !== data.userId));
+    });
+
+    return () => ws.disconnect();
+  }, [resourceId, jwtToken]);
+
+  return { users };
+}
+```
+
+**4. Uso nel componente:**
+
+```tsx
+function DocumentEditor({ documentId }: { documentId: string }) {
+  const jwt = 'your-jwt-token-here'; // Ottieni dal tuo auth service
+  const { users } = useCollaboration(documentId, jwt);
+
+  return (
+    <div>
+      <h1>Document Editor</h1>
+      <div>
+        <h3>Users online: {users.length}</h3>
+        <ul>
+          {users.map(user => (
+            <li key={user.userId}>
+              {user.userId} ({user.mode})
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Troubleshooting
+
+### ❌ Problema: Server non parte con ECONNREFUSED
+
+**Causa**: Backend cerca di connettersi a PostgreSQL che non è installato.
+
+**Soluzione**: Verifica `.env`:
+
+```bash
+DATABASE_ENABLED=false  # DEVE essere false
+```
+
+Riavvia server:
+
+```bash
+npm run start:dev
+```
+
+---
+
+### ❌ Problema: WebSocket error "JWT_INVALID"
+
+**Causa**: Token JWT non valido o `JWT_SECRET` diverso tra backend e frontend.
+
+**Soluzione 1** - Usa token di test (valido fino al 2061):
+
+```javascript
+const TEST_TOKEN =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJ0ZXN0LXVzZXItMSIsImVtYWlsIjoidGVzdEB0ZXN0LmNvbSIsImlhdCI6MTczMTc1MzYwMCwiZXhwIjoyODk0OTUzNjAwfQ.6xHmJR5HkL2zYvhT3jX8YxGxX2aQZ3Fqp0RzLxYxGxM';
+```
+
+**Soluzione 2** - Genera nuovo token con stesso secret:
+
+```javascript
+// Node.js REPL o script
+const jwt = require('jsonwebtoken');
+const token = jwt.sign(
+  { userId: 'your-user-id', email: 'user@example.com' },
+  'your-secret-key-here', // DEVE essere uguale a JWT_SECRET in .env
+  { expiresIn: '7d' },
+);
+console.log(token);
+```
+
+---
+
+### ❌ Problema: Porta 3000 già occupata
+
+**Soluzione**: Cambia porta in `.env`:
+
+```bash
+PORT=3001  # Usa porta diversa
+```
+
+Aggiorna URL frontend:
+
+```typescript
+io('http://localhost:3001/collaboration', {
+  /* ... */
+});
+```
+
+---
+
+### ❌ Problema: CORS error da frontend
+
+**Causa**: Frontend su dominio diverso (es. `http://localhost:8080`).
+
+**Soluzione**: CORS è già configurato, ma verifica che il frontend usi path corretto:
+
+```typescript
+// ✅ CORRETTO
+const socket = io('http://localhost:3000/collaboration', {
+  path: '/ws/socket.io', // Path obbligatorio
+  transports: ['websocket', 'polling'],
+});
+
+// ❌ SBAGLIATO (manca path)
+const socket = io('http://localhost:3000/collaboration');
+```
+
+---
+
+## Comandi Utili
+
+```bash
+# Avvia server in sviluppo (con hot-reload)
+npm run start:dev
+
+# Avvia server in debug mode
+npm run start:debug
+
+# Esegui tutti i test BDD (13 scenari)
+npm run test:bdd
+
+# Esegui solo test connessione (6 scenari)
+npm run test:bdd:be001-1
+
+# Esegui solo test presence tracking (7 scenari)
+npm run test:bdd:be001-2
+
+# Verifica salute server
+curl http://localhost:3000/health
+
+# Build per produzione
+npm run build
+```
+
+---
+
+## API WebSocket Disponibili
+
+### Eventi dopo connessione
+
+| Event            | Direzione       | Payload                                            | Descrizione                              |
+| ---------------- | --------------- | -------------------------------------------------- | ---------------------------------------- |
+| `resource:join`  | Client → Server | `{ resourceId: string, mode: 'editor'\|'viewer' }` | Entra in una risorsa (documento, foglio) |
+| `resource:leave` | Client → Server | `{ resourceId: string }`                           | Esci da una risorsa                      |
+| `user:joined`    | Server → Client | `{ resourceId, user: { socketId, userId, mode } }` | Nuovo utente entrato                     |
+| `user:left`      | Server → Client | `{ resourceId, userId }`                           | Utente uscito                            |
+
+### Esempio Flusso Completo
+
+```typescript
+// 1. Connessione
+socket.on('connected', data => {
+  console.log('Connesso:', data.userId);
+
+  // 2. Entra in risorsa
+  socket.emit('resource:join', {
+    resourceId: 'doc-123',
+    mode: 'editor',
+  });
+});
+
+// 3. Ascolta nuovi utenti
+socket.on('user:joined', data => {
+  console.log('Nuovo utente:', data.user.userId);
+  // Aggiorna UI con presenza multi-user
+});
+
+// 4. Ascolta utenti che escono
+socket.on('user:left', data => {
+  console.log('Utente uscito:', data.userId);
+  // Rimuovi dalla UI
+});
+
+// 5. Al cambio pagina/documento
+socket.emit('resource:leave', { resourceId: 'doc-123' });
+```
+
+---
+
+## Documentazione Completa
+
+- **API WebSocket per UI Team**: [UI_TEAM_WEBSOCKET_API.md](./UI_TEAM_WEBSOCKET_API.md)
+- **BDD Test Coverage**: [BDD_TEST_COVERAGE.md](./BDD_TEST_COVERAGE.md)
+- **Guida Contribuzione Backend**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Specifica Progetto Completa**: [PROJECT.md](./PROJECT.md)
+
+---
+
+## Prossimi Passi
+
+1. ✅ Backend funzionante in locale
+2. ✅ WebSocket connesso
+3. 🎯 **Implementa UI**: Segui esempi in [UI_TEAM_WEBSOCKET_API.md](./UI_TEAM_WEBSOCKET_API.md)
+4. 🎯 **Test multi-user**: Apri 2 tab browser, connetti con user diversi, verifica `user:joined`
+5. 🎯 **Integra autenticazione reale**: Sostituisci token di test con JWT dal tuo auth service
+
+---
+
+## Supporto
+
+- **Bug/Issue**: Apri issue su GitHub repository
+- **Domande sviluppo**: Vedi [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Security**: Vedi [SECURITY.md](../SECURITY.md)
+
+---
+
+**✅ Setup completato!** Ora puoi sviluppare il frontend con backend WebSocket funzionante in locale.

@@ -73,6 +73,8 @@ graph TB
 **Timeline**: Week 1-2 (November 16 - November 30, 2025)
 **Assignee**: Antonio Cittadino
 **Status**: ✅ Completed (November 16, 2025)
+**BDD Tests**: 6/6 scenarios PASS ✅ (see `/docs/BDD_TEST_COVERAGE.md`)
+**Implementation**: `/src/websocket-gateway/websocket-gateway.gateway.ts`
 
 #### Feature: WebSocket Connection with JWT Authentication
 
@@ -151,7 +153,8 @@ Feature: WebSocket Connection with JWT Authentication
 **Timeline**: Week 2-3
 **Assignee**: Completed
 **Status**: ✅ **COMPLETE** (November 16, 2025)
-**Implementation**: Single-instance ready (Redis/RabbitMQ for Q1 2026)
+**BDD Tests**: 7/7 scenarios PASS ✅ (see `/docs/BDD_TEST_COVERAGE.md`)
+**Implementation**: `/src/websocket-gateway/websocket-gateway.gateway.ts` (Single-instance ready, Redis/RabbitMQ for Q1 2026)
 
 #### Implementation Summary
 
@@ -162,7 +165,7 @@ Feature: WebSocket Connection with JWT Authentication
 - ✅ WebSocket broadcast to room participants (USER_JOINED/USER_LEFT)
 - ✅ Automatic disconnect cleanup (removes user from all resources)
 - ✅ Mode validation (editor/viewer)
-- ✅ Comprehensive test coverage (9 unit tests, 1 E2E test passing)
+- ✅ Comprehensive test coverage (9 unit tests, 6 E2E tests all passing)
 
 **Architecture**:
 
@@ -176,15 +179,15 @@ Feature: WebSocket Connection with JWT Authentication
 - Current: In-memory Map (data lost on restart)
 - Q1 2026: Redis for persistence, RabbitMQ for cross-instance broadcast
 
-**Test coverage** (201 unit tests passing, 15 E2E tests):
+**Test coverage** (201 unit tests passing, 20 E2E tests passing):
 
-- ✅ Join resource with validation
-- ✅ Duplicate join rejection
-- ✅ Leave resource with broadcast
-- ✅ Leave without join error
-- ✅ Multi-resource scenarios
-- ✅ Disconnect cleanup (all resources)
-- ⏳ E2E tests (5/6 need event listener pattern fix - known issue)
+- ✅ Join resource with validation (unit + E2E)
+- ✅ Duplicate join rejection (unit + E2E)
+- ✅ Leave resource with broadcast (unit + E2E)
+- ✅ Leave without join error (unit + E2E)
+- ✅ Multi-resource scenarios (unit + E2E)
+- ✅ Disconnect cleanup all resources (unit + E2E)
+- ✅ Multi-user broadcast (unit + E2E)
 
 **Commits**:
 
@@ -192,6 +195,7 @@ Feature: WebSocket Connection with JWT Authentication
 - `cafa1dd`: handleLeaveResource + disconnect cleanup
 - `2137524`: Unit tests (9 tests)
 - `bf4719e`: E2E tests (partial)
+- `0632b6a`: E2E tests complete (event listener pattern fix)
 
 #### Feature: User Presence and Resource Rooms
 

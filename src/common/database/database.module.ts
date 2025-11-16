@@ -1,46 +1,87 @@
-import { Module } from '@nestjs/common';
+import { DynamicModule, Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 /**
- * Database configuration module
+ * Database configuration module (optional loading)
  * Centralizes TypeORM configuration following Single Responsibility Principle
+ *
+ * Usage:
+ * - Set DATABASE_ENABLED=true to enable PostgreSQL connection
+ * - Set DATABASE_ENABLED=false to skip database (for WebSocket-only mode, BDD tests)
  */
-@Module({
-  imports: [
-    TypeOrmModule.forRootAsync({
+@Global()
+@Module({})
+export class DatabaseModule {
+  static forRoot(): DynamicModule {
+    const databaseEnabled = process.env.DATABASE_ENABLED === 'true';
+
+    if (!databaseEnabled) {
+      return this.createDisabledModule();
+    }
+
+    return this.createEnabledModule();
+  }
+
+  /**
+   * Create module WITHOUT TypeORM (WebSocket-only mode)
+   */
+  private static createDisabledModule(): DynamicModule {
+    console.log(
+      '[Database] ⏭️  Database disabled (DATABASE_ENABLED !== "true")',
+    );
+    console.log('[Database] 💡 To enable: Set DATABASE_ENABLED=true in .env');
+    console.log('[Database] 🚀 Running in WebSocket-only mode');
+
+    return {
+      module: DatabaseModule,
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const databaseConfig = {
-          type: 'postgres' as const,
-          host: configService.get<string>('database.host'),
-          port: configService.get<number>('database.port'),
-          username: configService.get<string>('database.username'),
-          password: configService.get<string>('database.password'),
-          database: configService.get<string>('database.name'),
-          autoLoadEntities: true,
-          synchronize: configService.get('nodeEnv') === 'development',
-          logging: configService.get('nodeEnv') === 'development',
-          retryAttempts: 3,
-          retryDelay: 3000,
-        };
+      exports: [],
+    };
+  }
 
-        // Validate critical configuration
-        if (
-          !databaseConfig.host ||
-          !databaseConfig.database ||
-          !databaseConfig.username
-        ) {
-          throw new Error(
-            'Critical database configuration missing. Check environment variables.',
-          );
-        }
+  /**
+   * Create module WITH TypeORM (database enabled)
+   */
+  private static createEnabledModule(): DynamicModule {
+    console.log('[Database] ✅ Database enabled, initializing TypeORM...');
 
-        return databaseConfig;
-      },
-      inject: [ConfigService],
-    }),
-  ],
-  exports: [TypeOrmModule],
-})
-export class DatabaseModule {}
+    return {
+      module: DatabaseModule,
+      imports: [
+        ConfigModule,
+        TypeOrmModule.forRootAsync({
+          imports: [ConfigModule],
+          useFactory: async (configService: ConfigService) => {
+            const databaseConfig = {
+              type: 'postgres' as const,
+              host: configService.get<string>('database.host', 'localhost'),
+              port: configService.get<number>('database.port', 5432),
+              username: configService.get<string>(
+                'database.username',
+                'postgres',
+              ),
+              password: configService.get<string>('database.password', ''),
+              database: configService.get<string>(
+                'database.name',
+                'collabornest',
+              ),
+              autoLoadEntities: true,
+              synchronize: configService.get('nodeEnv') === 'development',
+              logging: configService.get('nodeEnv') === 'development',
+              retryAttempts: 3,
+              retryDelay: 3000,
+            };
+
+            console.log(
+              `[Database] 🔌 Connecting to PostgreSQL at ${databaseConfig.host}:${databaseConfig.port}/${databaseConfig.database}`,
+            );
+            return databaseConfig;
+          },
+          inject: [ConfigService],
+        }),
+      ],
+      exports: [TypeOrmModule],
+    };
+  }
+}

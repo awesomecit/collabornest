@@ -93,9 +93,11 @@ export interface ConnectionInfo {
  */
 @Injectable()
 @NestWebSocketGateway({
-  namespace: '/collaboration', // Will be overridden by config
+  namespace: '/collaboration',
+  path: '/ws/socket.io', // Custom path for Socket.IO endpoint (required for nginx proxy)
+  transports: ['websocket', 'polling'], // Enable both transports (polling fallback for restrictive networks)
   cors: {
-    origin: true, // Will be overridden by config
+    origin: true, // Will be overridden by config in afterInit
     credentials: true,
   },
 })
@@ -175,6 +177,23 @@ export class WebSocketGateway
       server.engine.opts.pingTimeout = pingTimeout;
     }
 
+    // Add authentication middleware to validate JWT BEFORE connection
+    server.use(async (socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token;
+        if (!token) {
+          return next(new Error('JWT_MISSING'));
+        }
+
+        // Validate token (throws if invalid/expired)
+        await this.jwtService.validateToken(token);
+        next(); // Allow connection
+      } catch (error) {
+        // Reject connection with descriptive error
+        next(new Error('JWT_INVALID: ' + (error as Error).message));
+      }
+    });
+
     console.log('[DEBUG][WS][Gateway] WebSocket Gateway initialized:', {
       namespace: this.config.getNamespace(),
       port: this.config.getPort(),
@@ -210,31 +229,16 @@ export class WebSocketGateway
       const token = client.handshake.auth?.token;
       this.logConnectionAttempt(client, token);
 
-      // Step 1: Validate JWT token
-      if (!token) {
-        this.rejectConnection(client, WsErrorCode.JWT_MISSING);
-        return;
-      }
+      // JWT validation already done in middleware (afterInit)
+      // Extract user info from validated token
+      const validatedUser = await this.jwtService.validateToken(token);
 
-      let validatedUser;
-      try {
-        validatedUser = await this.jwtService.validateToken(token);
-      } catch (validationError) {
-        // JWT validation threw UnauthorizedException
-        console.error('[DEBUG][WS][Gateway] JWT validation error:', {
-          socketId: client.id,
-          error: (validationError as Error).message,
-        });
-        this.rejectConnection(client, WsErrorCode.JWT_INVALID);
-        return;
-      }
-
-      // Step 2: Check max connections per user
+      // Step 1: Check max connections per user
       if (!this.checkMaxConnections(client, validatedUser.userId)) {
         return;
       }
 
-      // Step 3: Add to connection pool
+      // Step 2: Add to connection pool
       this.addToConnectionPool(client, validatedUser);
     } catch (error) {
       this.handleConnectionError(client, error);
@@ -263,10 +267,13 @@ export class WebSocketGateway
       message: errorResponse.message,
     });
 
-    // Socket.IO pattern: disconnect with error data
-    // Cannot emit 'connect_error' manually (reserved event)
-    // Client will receive 'disconnect' event with reason
-    client.disconnect(true);
+    // Emit error event BEFORE disconnect so client can catch it
+    client.emit(WsEvent.CONNECT_ERROR, errorResponse);
+
+    // Disconnect after short delay to ensure error event is sent
+    setTimeout(() => {
+      client.disconnect(true);
+    }, 100);
   }
 
   private checkMaxConnections(client: Socket, userId: string): boolean {

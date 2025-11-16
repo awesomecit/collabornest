@@ -1,3 +1,8 @@
+// Carica le variabili d'ambiente PRIMA di qualsiasi import
+// L'utente può modificare DATABASE_ENABLED nel .env per abilitare/disabilitare il database
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import {
   INestApplication,
   NestInterceptor,
@@ -6,24 +11,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logger.interceptors';
 import { TransformInterceptor } from './common/interceptors/transform.interceptors';
 import { CustomLogger } from './common/logger/logger.service';
 import { setupSwagger } from './swagger/swagger.config';
-
-// Funzione per caricare il file di environment
-function loadEnvironment(envType?: string): void {
-  const envFilePath = path.join(__dirname, '..', `.env.${envType || 'test'}`);
-  dotenv.config({ path: envFilePath });
-  console.log(`Environment loaded from ${envFilePath}`);
-}
-
-// Carica l'environment per il test
-loadEnvironment('test');
 
 /**
  * Configura CORS per l'applicazione

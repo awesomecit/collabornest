@@ -21,6 +21,7 @@ import { SecurityMiddleware } from './common/middleware/security.middleware';
 import configuration from './config/configuration';
 import { validationSchema } from './config/validation.schema';
 import { HealthController } from './health/health.controller';
+import { WebSocketGatewayModule } from './websocket-gateway/websocket-gateway.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { HealthController } from './health/health.controller';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+      envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
       validationSchema,
       validationOptions: {
         allowUnknown: true,
@@ -43,14 +45,17 @@ import { HealthController } from './health/health.controller';
       },
     ]),
 
-    // Database
-    DatabaseModule,
+    // Database (optional - controlled by DATABASE_ENABLED env var)
+    DatabaseModule.forRoot(),
 
     // Logger globale
     LoggerModule,
 
     // Health checks
     TerminusModule,
+
+    // WebSocket Gateway for real-time collaboration
+    WebSocketGatewayModule,
 
     // Feature modules - add your modules here
     // Example: UsersModule, ProductsModule, etc.

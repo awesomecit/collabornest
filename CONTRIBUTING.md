@@ -182,6 +182,15 @@ E2E Tests        → Full stack, test HTTP endpoints
 - API endpoint validation
 - **Run:** `npm run test:e2e:safe` (full stack, 60s timeout)
 
+**BDD Tests** (`scripts/bdd-tests/*.test.js`)
+
+- Behavior-Driven Development scenarios with Gherkin syntax
+- Real WebSocket connections with Socket.IO client
+- Human-readable test output for documentation
+- **Run:** `npm run test:bdd` (all scenarios), `npm run test:bdd:connection`, `npm run test:bdd:presence`
+- **Coverage:** BE-001.1 (Connection Management), BE-001.2 (Presence Tracking)
+- **See:** `/docs/BDD_TEST_COVERAGE.md` for detailed flowchart and scenario breakdown
+
 ### Test Safety Guards
 
 Always use **safe scripts** for integration/e2e tests:
@@ -503,6 +512,38 @@ docker-compose up -d
 
 # Check database connection
 npm run test:integration:safe
+```
+
+**Problem:** BDD tests fail with "ECONNREFUSED" or database errors
+
+```bash
+# BDD tests require WebSocket-only mode (no database)
+# Set DATABASE_ENABLED=false in .env
+
+# Edit .env
+DATABASE_ENABLED=false  # ← Must be false for BDD tests
+PORT=3000
+
+# Restart server
+npm run start:dev
+
+# Run BDD tests
+npm run test:bdd
+```
+
+**Why?** WebSocket Gateway can run without PostgreSQL. BDD tests focus on real-time communication, not persistence.
+
+**Problem:** BDD tests fail with "JWT_INVALID: invalid signature"
+
+```bash
+# JWT_SECRET in .env must match the secret used in BDD tests
+# Check current secret
+grep JWT_SECRET .env
+
+# BDD tests use this secret (scripts/bdd-tests/*.test.js):
+JWT_SECRET=your_super_secure_jwt_secret_32_characters_minimum
+
+# If different, update .env to match
 ```
 
 **Problem:** "Working directory not clean" error

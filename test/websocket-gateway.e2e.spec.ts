@@ -1,8 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import { io, Socket } from 'socket.io-client';
 import { WebSocketGatewayConfigService } from '../src/websocket-gateway/config/gateway-config.service';
-import { WebSocketGateway } from '../src/websocket-gateway/websocket-gateway.gateway';
 import { WsEvent } from '../src/websocket-gateway/constants';
+import { WebSocketGateway } from '../src/websocket-gateway/websocket-gateway.gateway';
 import {
   createExpiredJWT,
   createValidJWT,
