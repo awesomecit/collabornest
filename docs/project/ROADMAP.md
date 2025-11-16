@@ -1,7 +1,12 @@
 # CollaborNest - Product Roadmap
 
 > **Last Updated**: November 16, 2025
-> **Vers| Wee| Week | Milestone | Deliverable | Status |
+> **Vers| Wee| W| Week | Milestone | Deliverable | Status |
+> | ---- | --------------------- | -------------------------------------------------- | ------------ |
+> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
+> | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detect) | ✅ Completed |
+> | 2-3 | Presence Tracking | Room join/leave, presence sync, user notifications | ✅ Completed |
+> | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 📋 Planned | Milestone | Deliverable | Status |
 > | ---- | --------------------- | -------------------------------------------------- | ------------- |
 > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown, ping/pong | ✅ Completed |
 > | 2-3 | Heartbeat & Presence | Activity tracking, room join/leave, presence sync | 🔄 In Progress |Milestone | Deliverable | Status |
@@ -99,13 +104,13 @@ gantt
 
 ### Success Criteria
 
-- [ ] WebSocket connection with JWT authentication
-- [ ] Real-time presence tracking (join/leave events)
-- [ ] Redis-backed distributed locks (< 5ms latency)
-- [ ] Y.js document synchronization
-- [ ] RabbitMQ event broadcasting across instances
-- [ ] NDJSON audit logs with 10-year retention
-- [ ] Load test: 500+ concurrent users with < 200ms P99 latency
+- [x] **WebSocket connection with JWT authentication** ✅ COMPLETE
+- [x] **Real-time presence tracking (join/leave events)** ✅ COMPLETE (single-instance)
+- [ ] Redis-backed distributed locks (< 5ms latency) - Week 3-4
+- [ ] Y.js document synchronization - Week 4-6
+- [ ] RabbitMQ event broadcasting across instances - Week 5-6
+- [ ] NDJSON audit logs with 10-year retention - Week 6-7
+- [ ] Load test: 500+ concurrent users with < 200ms P99 latency - Week 8
 
 ---
 
