@@ -11,73 +11,72 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { io, Socket } from 'socket.io-client';
+import * as jwt from 'jsonwebtoken';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { WebSocketGateway } from './websocket-gateway.gateway';
 
 /**
  * JWT Token Factory
  *
- * Crea JWT mock per test (senza verifica firma reale)
+ * Creates properly signed JWT tokens for testing using jsonwebtoken library
  */
 export class JWTTokenFactory {
+  private static readonly DEFAULT_SECRET = 'test-secret-key';
+
   /**
-   * Crea un JWT valido con payload custom
+   * Create a valid JWT token with custom payload
    *
-   * @param userId - User ID (diventa 'sub' claim)
-   * @param expiresIn - Secondi prima della scadenza (default: 3600 = 1 ora)
-   * @param customClaims - Claims aggiuntivi da includere nel payload
-   * @returns JWT token string (formato: header.payload.signature)
+   * @param userId - User ID (becomes 'sub' claim)
+   * @param expiresIn - Seconds until expiration (default: 3600 = 1 hour)
+   * @param customClaims - Additional claims to include in payload
+   * @param secret - Secret key for signing (default: 'test-secret-key')
+   * @returns Signed JWT token string
    */
   static createValid(
     userId: string,
     expiresIn = 3600,
     customClaims: Record<string, any> = {},
+    secret = this.DEFAULT_SECRET,
   ): string {
-    const header = Buffer.from(
-      JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
-    ).toString('base64');
+    const payload = {
+      sub: userId,
+      preferred_username: customClaims.preferred_username || `user_${userId}`,
+      given_name: customClaims.given_name || 'Test',
+      family_name: customClaims.family_name || 'User',
+      email: customClaims.email || `${userId}@example.com`,
+      realm_access: customClaims.realm_access || { roles: ['user'] },
+      ...customClaims,
+    };
 
-    const payload = Buffer.from(
-      JSON.stringify({
-        sub: userId,
-        preferred_username: `user_${userId}`,
-        given_name: 'Test',
-        family_name: 'User',
-        email: `${userId}@example.com`,
-        realm_access: { roles: ['user'] },
-        exp: Math.floor(Date.now() / 1000) + expiresIn,
-        ...customClaims,
-      }),
-    ).toString('base64');
-
-    const signature = 'mock-signature';
-
-    return `${header}.${payload}.${signature}`;
+    return jwt.sign(payload, secret, {
+      expiresIn,
+      algorithm: 'HS256',
+    });
   }
 
   /**
-   * Crea un JWT già scaduto
+   * Create an expired JWT token
    *
    * @param userId - User ID
-   * @param expiredSecondsAgo - Secondi fa quando è scaduto (default: 3600 = 1 ora fa)
-   * @returns JWT token scaduto
+   * @param expiredSecondsAgo - How many seconds ago it expired (default: 3600 = 1 hour ago)
+   * @param secret - Secret key for signing
+   * @returns Expired JWT token
    */
-  static createExpired(userId: string, expiredSecondsAgo = 3600): string {
-    const header = Buffer.from(
-      JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
-    ).toString('base64');
+  static createExpired(
+    userId: string,
+    expiredSecondsAgo = 3600,
+    secret = this.DEFAULT_SECRET,
+  ): string {
+    const payload = {
+      sub: userId,
+      preferred_username: `user_${userId}`,
+    };
 
-    const payload = Buffer.from(
-      JSON.stringify({
-        sub: userId,
-        preferred_username: `user_${userId}`,
-        exp: Math.floor(Date.now() / 1000) - expiredSecondsAgo,
-      }),
-    ).toString('base64');
-
-    const signature = 'mock-signature';
-
-    return `${header}.${payload}.${signature}`;
+    // Create token that expired in the past
+    return jwt.sign(payload, secret, {
+      expiresIn: -expiredSecondsAgo, // Negative = expired
+      algorithm: 'HS256',
+    });
   }
 
   /**

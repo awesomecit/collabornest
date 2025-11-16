@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Socket } from 'socket.io';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
-import { WsErrorCode, WsEvent } from './constants';
+import { WsEvent } from './constants';
 import { WebSocketGateway } from './websocket-gateway.gateway';
 
 /**

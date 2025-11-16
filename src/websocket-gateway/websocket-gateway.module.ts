@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { WebSocketGateway } from './websocket-gateway.gateway';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
+import { JwtMockService } from './auth';
+import { JwtConfigKey } from './constants';
 
 /**
  * WebSocket Gateway Module
@@ -10,7 +13,7 @@ import { WebSocketGatewayConfigService } from './config/gateway-config.service';
  * Implements BE-001.1: WebSocket Connection Management.
  *
  * Features:
- * - JWT authentication
+ * - JWT authentication (HS256 for dev, RS256 for production)
  * - Connection pool tracking
  * - Heartbeat ping/pong mechanism
  * - Max connections per user enforcement
@@ -36,8 +39,21 @@ import { WebSocketGatewayConfigService } from './config/gateway-config.service';
  * @see types/resource.types.ts for resource ID parsing utilities
  */
 @Module({
-  imports: [ConfigModule],
-  providers: [WebSocketGateway, WebSocketGatewayConfigService],
-  exports: [WebSocketGateway, WebSocketGatewayConfigService],
+  imports: [
+    ConfigModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>(JwtConfigKey.SECRET),
+        // Verification options only (signOptions not needed for validation)
+        verifyOptions: {
+          algorithms: ['HS256'] as const,
+        },
+      }),
+    }),
+  ],
+  providers: [WebSocketGateway, WebSocketGatewayConfigService, JwtMockService],
+  exports: [WebSocketGateway, WebSocketGatewayConfigService, JwtMockService],
 })
 export class WebSocketGatewayModule {}
