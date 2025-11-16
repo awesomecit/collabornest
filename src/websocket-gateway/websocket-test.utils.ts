@@ -5,7 +5,19 @@
  * e garantire consistency nei test E2E e di integrazione.
  *
  * Pattern: Factory + Helper functions
- * Ispirato a: reference/gatawey-old/socket-gateway/socket-gateway.test-utils.ts
+ * Ispirato a: reference/gatawey-    // E2E test config: SHORT timeouts for fast tests (not production values)
+    const mockConfigService = {
+      getPort: jest.fn().mockReturnValue(3001),
+      getNamespace: jest.fn().mockReturnValue('/collaboration'),
+      getPingInterval: jest.fn().mockReturnValue(2000), // 2s for E2E tests (production: 25s)
+      getPingTimeout: jest.fn().mockReturnValue(5000),  // 5s for E2E tests (production: 20s)
+      getMaxConnectionsPerUser: jest.fn().mockReturnValue(5),
+      isEnabled: jest.fn().mockReturnValue(true),
+      getCorsConfig: jest
+        .fn()
+        .mockReturnValue({ origin: '*', credentials: true }),
+      getTransports: jest.fn().mockReturnValue(['websocket', 'polling']),
+    };ateway/socket-gateway.test-utils.ts
  */
 
 import { INestApplication } from '@nestjs/common';
@@ -14,6 +26,7 @@ import { io, Socket } from 'socket.io-client';
 import * as jwt from 'jsonwebtoken';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { WebSocketGateway } from './websocket-gateway.gateway';
+import { JwtMockService } from './auth/jwt-mock.service';
 
 /**
  * JWT Token Factory
@@ -129,11 +142,20 @@ export class WebSocketClientFactory {
 
       this.clients.push(client);
 
-      client.on('connect', () => resolve(client));
-      client.on('connect_error', error => reject(error));
-
       // Timeout after 5 seconds
-      setTimeout(() => reject(new Error('Connection timeout')), 5000);
+      const timeout = setTimeout(() => {
+        reject(new Error('Connection timeout'));
+      }, 5000);
+
+      client.on('connect', () => {
+        clearTimeout(timeout);
+        resolve(client);
+      });
+
+      client.on('connect_error', error => {
+        clearTimeout(timeout);
+        reject(error);
+      });
     });
   }
 
@@ -153,11 +175,14 @@ export class WebSocketClientFactory {
 
       this.clients.push(client);
 
-      // Server disconnects client on auth failure
-      client.on('disconnect', () => resolve(client));
-
       // Timeout fallback
-      setTimeout(() => resolve(client), 2000);
+      const timeout = setTimeout(() => resolve(client), 2000);
+
+      // Server disconnects client on auth failure
+      client.on('disconnect', () => {
+        clearTimeout(timeout);
+        resolve(client);
+      });
     });
   }
 
@@ -225,16 +250,8 @@ export class WebSocketTestSetup {
     private namespace: string = '/collaboration',
   ) {}
 
-  /**
-   * Inizializza l'app NestJS e avvia il server WebSocket
-   */
-  async initialize(): Promise<{
-    app: INestApplication;
-    gateway: WebSocketGateway;
-    configService: WebSocketGatewayConfigService;
-    clientFactory: WebSocketClientFactory;
-  }> {
-    const mockConfigService = {
+  private createMockConfigService() {
+    return {
       getPort: jest.fn().mockReturnValue(this.port),
       getNamespace: jest.fn().mockReturnValue(this.namespace),
       getPingInterval: jest.fn().mockReturnValue(25000),
@@ -246,6 +263,61 @@ export class WebSocketTestSetup {
         .mockReturnValue({ origin: '*', credentials: true }),
       getTransports: jest.fn().mockReturnValue(['websocket', 'polling']),
     };
+  }
+
+  private createMockJwtService() {
+    return {
+      validateToken: jest.fn().mockImplementation(async (token: string) => {
+        const parts = token.split('.');
+        if (parts.length !== 3) throw new Error('Invalid JWT format');
+
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+          throw new Error('JWT expired');
+        }
+
+        return {
+          userId: payload.sub,
+          username: payload.preferred_username,
+          email: payload.email,
+        };
+      }),
+    };
+  }
+
+  private async configureSocketIOEngine(mockConfigService: any) {
+    // Wait for Socket.IO engine (lazy initialization)
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    if (this.gateway.server?.engine?.opts) {
+      const pingInterval = mockConfigService.getPingInterval();
+      const pingTimeout = mockConfigService.getPingTimeout();
+
+      this.gateway.server.engine.opts.pingInterval = pingInterval;
+      this.gateway.server.engine.opts.pingTimeout = pingTimeout;
+
+      console.log(
+        '[DEBUG][WS][E2E] Socket.IO engine configured with E2E timing:',
+        { pingInterval, pingTimeout, engineReady: true },
+      );
+    } else {
+      console.warn(
+        '[DEBUG][WS][E2E] Socket.IO engine not ready, using production defaults (25s/20s)',
+      );
+    }
+  }
+
+  /**
+   * Inizializza l'app NestJS e avvia il server WebSocket
+   */
+  async initialize(): Promise<{
+    app: INestApplication;
+    gateway: WebSocketGateway;
+    configService: WebSocketGatewayConfigService;
+    clientFactory: WebSocketClientFactory;
+  }> {
+    const mockConfigService = this.createMockConfigService();
+    const mockJwtService = this.createMockJwtService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -253,6 +325,10 @@ export class WebSocketTestSetup {
         {
           provide: WebSocketGatewayConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: JwtMockService,
+          useValue: mockJwtService,
         },
       ],
     }).compile();
@@ -265,6 +341,8 @@ export class WebSocketTestSetup {
 
     await this.app.init();
     await this.app.listen(this.port);
+
+    await this.configureSocketIOEngine(mockConfigService);
 
     this.clientFactory = new WebSocketClientFactory(this.port, this.namespace);
 

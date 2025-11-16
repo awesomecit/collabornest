@@ -144,8 +144,11 @@ export class WebSocketGateway
     const pingInterval = this.config.getPingInterval() || 25000;
     const pingTimeout = this.config.getPingTimeout() || 20000;
 
-    server.engine.opts.pingInterval = pingInterval;
-    server.engine.opts.pingTimeout = pingTimeout;
+    // Engine might not be initialized yet in test environment
+    if (server.engine && server.engine.opts) {
+      server.engine.opts.pingInterval = pingInterval;
+      server.engine.opts.pingTimeout = pingTimeout;
+    }
 
     console.log('[DEBUG][WS][Gateway] WebSocket Gateway initialized:', {
       namespace: this.config.getNamespace(),
@@ -235,7 +238,9 @@ export class WebSocketGateway
       message: errorResponse.message,
     });
 
-    client.emit(WsEvent.CONNECT_ERROR, errorResponse);
+    // Socket.IO pattern: disconnect with error data
+    // Cannot emit 'connect_error' manually (reserved event)
+    // Client will receive 'disconnect' event with reason
     client.disconnect(true);
   }
 

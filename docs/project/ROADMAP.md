@@ -1,7 +1,10 @@
 # CollaborNest - Product Roadmap
 
 > **Last Updated**: November 16, 2025
-> **Vers| Week | Milestone | Deliverable | Status |
+> **Vers| Wee| Week | Milestone | Deliverable | Status |
+> | ---- | --------------------- | -------------------------------------------------- | ------------- |
+> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown, ping/pong | ✅ Completed |
+> | 2-3 | Heartbeat & Presence | Activity tracking, room join/leave, presence sync | 🔄 In Progress |Milestone | Deliverable | Status |
 > | ---- | --------------------- | -------------------------------------------------- | -------------- |
 > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
 > | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detection) | ✅ Completed |
