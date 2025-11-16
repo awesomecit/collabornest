@@ -15,6 +15,11 @@ import { WebSocketGatewayConfigService } from './config/gateway-config.service';
  * - Heartbeat ping/pong mechanism
  * - Max connections per user enforcement
  *
+ * Resource Hierarchy (SSOT):
+ * - Root resource: "resourceType:identifier" (e.g., "surgery-management:abc-123")
+ * - Sub-resource (1-level): "resourceType:id/subType:subId" (e.g., "surgery-management:abc-123/field:notes")
+ * - Room: Socket.IO channel where roomId === resourceId for direct mapping
+ *
  * Configuration:
  * - Uses @nestjs/config for environment variables
  * - See WebSocketGatewayConfigService for all settings
@@ -28,6 +33,7 @@ import { WebSocketGatewayConfigService } from './config/gateway-config.service';
  * ```
  *
  * @see EPIC-001-websocket-gateway.md BE-001.1
+ * @see types/resource.types.ts for resource ID parsing utilities
  */
 @Module({
   imports: [ConfigModule],
