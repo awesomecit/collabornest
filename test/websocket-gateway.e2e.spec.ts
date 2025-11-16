@@ -600,4 +600,379 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
       }
     }, 10000); // 10s timeout for multiple connection attempts
   });
+
+  /**
+   * BE-001.2: Presence Tracking & Resource Rooms - E2E Tests
+   *
+   * BDD Scenarios:
+   * - Scenario 7: User joins resource and receives user list
+   * - Scenario 8: Multiple users join same resource with broadcast
+   * - Scenario 9: User leaves resource with broadcast
+   * - Scenario 10: Disconnect cleanup removes user from all resources
+   */
+  describe('BE-001.2: Presence Tracking & Resource Rooms', () => {
+    describe('Scenario 7: User Joins Resource', () => {
+      it('should join resource and receive current user list', done => {
+        let client: Socket;
+
+        const setupTest = async () => {
+          // GIVEN a connected client
+          client =
+            await clientFactory.createAuthenticatedClient('user-join-test');
+
+          console.log('[DEBUG][WS][E2E] Client connected for join test');
+
+          // Setup listener for response
+          client.on('resource:joined', (response: any) => {
+            console.log('[DEBUG][WS][E2E] Join response:', response);
+
+            // THEN should receive success response with user list
+            expect(response.success).toBe(true);
+            expect(response.resourceId).toBe('resource:page:/patient/E2E-001');
+            expect(response.users).toHaveLength(1);
+            expect(response.users[0].userId).toBe('user-join-test');
+            expect(response.users[0].mode).toBe('editor');
+
+            client.disconnect();
+            done();
+          });
+
+          // WHEN client joins resource
+          client.emit('resource:join', {
+            resourceId: 'resource:page:/patient/E2E-001',
+            resourceType: 'page',
+            mode: 'editor',
+          });
+        };
+
+        setupTest().catch(error => {
+          done.fail(`Test setup failed: ${error.message}`);
+        });
+      }, 10000);
+
+      it('should reject duplicate join attempt', async () => {
+        // GIVEN client already in resource
+        const client = await clientFactory.createAuthenticatedClient(
+          'user-duplicate-test',
+        );
+
+        // First join
+        await new Promise(resolve => {
+          client.emit(
+            'resource:join',
+            {
+              resourceId: 'resource:page:/patient/E2E-002',
+              resourceType: 'page',
+              mode: 'editor',
+            },
+            resolve,
+          );
+        });
+
+        // WHEN try to join same resource again
+        const response: any = await new Promise(resolve => {
+          client.emit(
+            'resource:join',
+            {
+              resourceId: 'resource:page:/patient/E2E-002',
+              resourceType: 'page',
+              mode: 'viewer',
+            },
+            resolve,
+          );
+        });
+
+        console.log('[DEBUG][WS][E2E] Duplicate join response:', response);
+
+        // THEN should receive error
+        expect(response.data.success).toBe(false);
+        expect(response.data.message).toContain('already joined');
+
+        client.disconnect();
+      }, 10000);
+    });
+
+    describe('Scenario 8: Multiple Users Join Resource', () => {
+      it('should broadcast user:joined to other users in resource', done => {
+        let client1: Socket;
+        let client2: Socket;
+
+        const setupTest = async () => {
+          // GIVEN first user in resource
+          client1 =
+            await clientFactory.createAuthenticatedClient('user-broadcast-1');
+
+          console.log('[DEBUG][WS][E2E] Client 1 connected');
+
+          // First user joins resource
+          const joinResponse: any = await new Promise(resolve => {
+            client1.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-003',
+                resourceType: 'page',
+                mode: 'editor',
+              },
+              resolve,
+            );
+          });
+
+          console.log('[DEBUG][WS][E2E] Client 1 join response:', joinResponse);
+          expect(joinResponse.data.success).toBe(true);
+
+          // Setup listener for user:joined broadcast
+          client1.on('user:joined', (notification: any) => {
+            console.log(
+              '[DEBUG][WS][E2E] Client 1 received user:joined:',
+              notification,
+            );
+
+            // THEN first user should receive broadcast
+            expect(notification.resourceId).toBe(
+              'resource:page:/patient/E2E-003',
+            );
+            expect(notification.userId).toBe('user-broadcast-2');
+            expect(notification.username).toBe('user_user-broadcast-2');
+            expect(notification.mode).toBe('viewer');
+
+            client1.disconnect();
+            client2.disconnect();
+            done();
+          });
+
+          // WHEN second user joins same resource
+          client2 =
+            await clientFactory.createAuthenticatedClient('user-broadcast-2');
+
+          console.log('[DEBUG][WS][E2E] Client 2 connected');
+
+          const join2Response: any = await new Promise(resolve => {
+            client2.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-003',
+                resourceType: 'page',
+                mode: 'viewer',
+              },
+              resolve,
+            );
+          });
+
+          console.log(
+            '[DEBUG][WS][E2E] Client 2 join response:',
+            join2Response,
+          );
+          expect(join2Response.data.success).toBe(true);
+          expect(join2Response.data.users).toHaveLength(2);
+        };
+
+        setupTest().catch(error => {
+          done.fail(`Test setup failed: ${error.message}`);
+        });
+      }, 15000);
+    });
+
+    describe('Scenario 9: User Leaves Resource', () => {
+      it('should leave resource and broadcast to others', done => {
+        let client1: Socket;
+        let client2: Socket;
+
+        const setupTest = async () => {
+          // GIVEN two users in same resource
+          client1 =
+            await clientFactory.createAuthenticatedClient('user-leave-1');
+          client2 =
+            await clientFactory.createAuthenticatedClient('user-leave-2');
+
+          await new Promise(resolve => {
+            client1.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-004',
+                resourceType: 'page',
+                mode: 'editor',
+              },
+              resolve,
+            );
+          });
+
+          const join2Response: any = await new Promise(resolve => {
+            client2.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-004',
+                resourceType: 'page',
+                mode: 'viewer',
+              },
+              resolve,
+            );
+          });
+
+          expect(join2Response.data.users).toHaveLength(2);
+
+          // Setup listener for user:left broadcast
+          client2.on('user:left', (notification: any) => {
+            console.log(
+              '[DEBUG][WS][E2E] Client 2 received user:left:',
+              notification,
+            );
+
+            // THEN second user should receive broadcast
+            expect(notification.resourceId).toBe(
+              'resource:page:/patient/E2E-004',
+            );
+            expect(notification.userId).toBe('user-leave-1');
+
+            client1.disconnect();
+            client2.disconnect();
+            done();
+          });
+
+          // WHEN first user leaves
+          const leaveResponse: any = await new Promise(resolve => {
+            client1.emit(
+              'resource:leave',
+              {
+                resourceId: 'resource:page:/patient/E2E-004',
+              },
+              resolve,
+            );
+          });
+
+          console.log('[DEBUG][WS][E2E] Leave response:', leaveResponse);
+
+          // THEN should receive success
+          expect(leaveResponse.event).toBe('resource:left');
+          expect(leaveResponse.data.success).toBe(true);
+          expect(leaveResponse.data.resourceId).toBe(
+            'resource:page:/patient/E2E-004',
+          );
+        };
+
+        setupTest().catch(error => {
+          done.fail(`Test setup failed: ${error.message}`);
+        });
+      }, 15000);
+
+      it('should reject leave if user not in resource', async () => {
+        // GIVEN client not in resource
+        const client =
+          await clientFactory.createAuthenticatedClient('user-not-joined');
+
+        // WHEN try to leave without joining
+        const response: any = await new Promise(resolve => {
+          client.emit(
+            'resource:leave',
+            {
+              resourceId: 'resource:page:/patient/E2E-005',
+            },
+            resolve,
+          );
+        });
+
+        console.log('[DEBUG][WS][E2E] Leave without join response:', response);
+
+        // THEN should receive error
+        expect(response.data.success).toBe(false);
+        expect(response.data.message).toContain('not in this resource');
+
+        client.disconnect();
+      }, 10000);
+    });
+
+    describe('Scenario 10: Disconnect Cleanup', () => {
+      it('should remove user from all resources on disconnect', done => {
+        let client1: Socket;
+        let client2: Socket;
+        const expectedDisconnects = 2; // Two resources
+        let disconnectNotifications = 0;
+
+        const setupTest = async () => {
+          // GIVEN user in multiple resources with another user watching
+          client1 = await clientFactory.createAuthenticatedClient(
+            'user-disconnect-test',
+          );
+          client2 =
+            await clientFactory.createAuthenticatedClient('user-watcher');
+
+          // Client 1 joins two resources
+          await new Promise(resolve => {
+            client1.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-006',
+                resourceType: 'page',
+                mode: 'editor',
+              },
+              resolve,
+            );
+          });
+
+          await new Promise(resolve => {
+            client1.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-007',
+                resourceType: 'page',
+                mode: 'editor',
+              },
+              resolve,
+            );
+          });
+
+          // Client 2 joins both resources to watch
+          await new Promise(resolve => {
+            client2.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-006',
+                resourceType: 'page',
+                mode: 'viewer',
+              },
+              resolve,
+            );
+          });
+
+          await new Promise(resolve => {
+            client2.emit(
+              'resource:join',
+              {
+                resourceId: 'resource:page:/patient/E2E-007',
+                resourceType: 'page',
+                mode: 'viewer',
+              },
+              resolve,
+            );
+          });
+
+          console.log('[DEBUG][WS][E2E] Both users joined both resources');
+
+          // Setup listener for user:left broadcasts
+          client2.on('user:left', (notification: any) => {
+            console.log(
+              '[DEBUG][WS][E2E] Watcher received user:left:',
+              notification,
+            );
+
+            // THEN watcher should receive user:left for both resources
+            expect(notification.userId).toBe('user-disconnect-test');
+            expect(notification.reason).toBe('disconnect');
+            disconnectNotifications++;
+
+            if (disconnectNotifications === expectedDisconnects) {
+              client2.disconnect();
+              done();
+            }
+          });
+
+          // WHEN first user disconnects
+          client1.disconnect();
+        };
+
+        setupTest().catch(error => {
+          done.fail(`Test setup failed: ${error.message}`);
+        });
+      }, 20000);
+    });
+  });
 });
