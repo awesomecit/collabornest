@@ -25,6 +25,7 @@
 | [HUSKY-001](#husky-001-husky-v10-compatibility-deprecated-lines)  | 🛠️ Compat  | Husky v10 compatibility                | Low      | Easy       | Q1 2026  | 📋 Open     |
 | [INFRA-001](#infra-001-nginx-reverse-proxy-configuration)         | 🏗️ Infra   | Nginx reverse-proxy for WebSocket      | High     | Medium     | Q4 2025  | 📋 Planned  |
 | [INFRA-002](#infra-002-redis-adapter-multi-instance-scaling)      | 🏗️ Infra   | Redis adapter for horizontal scaling   | Medium   | Medium     | Q1 2026  | 📋 Planned  |
+| [FEATURE-003](#feature-003-connection-leak-detection-sweep-job)   | 📋 Feature | Automatic stale connection cleanup     | Medium   | Easy       | Q1 2026  | 📋 Planned  |
 
 **Legend**:
 
@@ -112,6 +113,71 @@
 - **Status**: Not Started
 - **Priority**: Low
 - **Description**: E2E tests don't generate coverage reports (by design, but could be optional)
+
+---
+
+### FEATURE-003: Connection leak detection sweep job
+
+- **Status**: Planned
+- **Priority**: Medium
+- **Difficulty**: Easy
+- **Target**: Q1 2026 (BE-001.2 Presence Tracking)
+- **Description**: Implement automatic sweep job to detect and cleanup stale WebSocket connections
+- **Rationale**: Prevent memory leaks from orphaned connections (network issues, crashed clients, etc.)
+- **Current Implementation**:
+  - `cleanupStaleConnections()` method exists (lines 547-585 in websocket-gateway.gateway.ts)
+  - Tracks `lastActivityAt` per connection
+  - Stale threshold: 2x pingTimeout (default 40s)
+  - Manual invocation only (no automatic sweep)
+- **Required Implementation**:
+  - Add `setInterval()` in `afterInit()` for periodic sweep
+  - Configurable sweep interval (default: 60s, like reference implementation)
+  - Prometheus metrics: `websocket_stale_connections_total`, `websocket_cleanup_duration_seconds`
+  - Graceful shutdown: Clear interval in `onApplicationShutdown()`
+  - Log sweep statistics when stale connections found
+- **Deliverables**:
+  - [ ] Config option: `getSweepInterval()` in `WebSocketGatewayConfigService`
+  - [ ] Interval timer in `afterInit()` calling `cleanupStaleConnections()`
+  - [ ] Prometheus metrics for monitoring
+  - [ ] Unit tests: Verify sweep job runs periodically
+  - [ ] Integration test: Verify stale connection cleanup with mocked time
+  - [ ] Documentation: Update EPIC-001 with sweep job details
+- **Acceptance Criteria**:
+  - [ ] Sweep job runs every 60s (configurable)
+  - [ ] Stale connections disconnected and removed from pool
+  - [ ] Metrics exported for alerting (Grafana dashboard)
+  - [ ] Zero performance impact on active connections
+  - [ ] Graceful shutdown clears interval timer
+- **Configuration Example**:
+
+  ```typescript
+  // config/gateway-config.service.ts
+  getSweepInterval(): number {
+    return this.config.sweepInterval || 60000; // 60s default
+  }
+
+  // websocket-gateway.gateway.ts
+  afterInit(server: Server): void {
+    this.sweepJobTimer = setInterval(() => {
+      const cleanedCount = this.cleanupStaleConnections();
+      if (cleanedCount > 0) {
+        this.logger.warn(`Sweep job cleaned ${cleanedCount} stale connections`);
+      }
+    }, this.config.getSweepInterval());
+  }
+
+  async onApplicationShutdown(signal?: string): Promise<void> {
+    if (this.sweepJobTimer) {
+      clearInterval(this.sweepJobTimer);
+    }
+    await this.gracefulShutdown();
+  }
+  ```
+
+- **References**:
+  - `reference/gatawey-old/socket-gateway/socket-gateway.gateway.ts` lines 3160-3164 (sweep job pattern)
+  - Current implementation: `src/websocket-gateway/websocket-gateway.gateway.ts` lines 547-585
+  - EPIC-001: BE-001.2 Presence Tracking (related feature)
 
 ---
 
