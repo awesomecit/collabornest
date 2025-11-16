@@ -28,10 +28,20 @@ import {
  * - E2E tests with real Socket.IO server/client
  * - JWT validation with mock tokens
  * - Connection pool verification
+ * - WebSocket-only transport for stability (per docs/infrastructure/NGINX_SOCKETIO_GUIDE.md)
  *
- * Test Runner: Jest
+ * Test Runner: Jest (60s timeout per jest.e2e.config.js)
  * Framework: NestJS Testing Module + Socket.IO Client
  * Test Utils: websocket-test.utils.ts (centralized factories)
+ *
+ * Best Practices Applied:
+ * 1. Force WebSocket transport (no polling) for test stability
+ * 2. Explicit cleanup in afterEach/afterAll
+ * 3. Single backend instance on dedicated port (3001)
+ * 4. Extended timeouts for heartbeat/long-running tests
+ * 5. Proper error handling with connect_error listeners
+ *
+ * @see docs/infrastructure/NGINX_SOCKETIO_GUIDE.md - Section "Test E2E - Stabilità"
  */
 
 describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
@@ -55,13 +65,17 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
     clientFactory = setup.clientFactory;
   }, 10000); // Increased timeout for app startup
 
-  afterAll(async () => {
-    await testSetup.cleanup();
-  }, 10000); // Increased timeout for cleanup
-
   afterEach(() => {
+    // Best Practice: Cleanup all client connections after each test
+    // Prevents connection pool pollution between tests
     testSetup.cleanupClients();
   });
+
+  afterAll(async () => {
+    // Best Practice: Ensure complete cleanup before suite ends
+    // Prevents "Jest did not exit" warnings
+    await testSetup.cleanup();
+  }, 10000); // Increased timeout for cleanup
 
   describe('Scenario 1: Valid JWT Token Authentication', () => {
     it('should authenticate client with valid JWT token', async () => {
@@ -87,12 +101,14 @@ describe('WebSocketGateway - BE-001.1 Connection Management (E2E)', () => {
       // GIVEN a client with valid JWT containing user info
       const validToken = createValidJWT('user456');
 
+      // Best Practice: Explicit client creation with WebSocket-only transport
+      // Avoids polling fallback issues in test environment
       const client: Socket = io(
         `http://localhost:${TEST_PORT}${TEST_NAMESPACE}`,
         {
           auth: { token: validToken },
-          transports: ['websocket'],
-          reconnection: false,
+          transports: ['websocket'], // Force WebSocket (no polling)
+          reconnection: false, // Disable auto-reconnect in tests
         },
       );
 

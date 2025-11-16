@@ -23,6 +23,8 @@
 | [FEATURE-001](#feature-001-integration-test-docker-orchestration) | 📋 Feature | Integration test Docker orchestration  | Low      | Medium     | Q2 2026  | 📋 Planned  |
 | [FEATURE-002](#feature-002-e2e-test-coverage-reporting)           | 📋 Feature | E2E test coverage reporting            | Low      | Easy       | Q2 2026  | 📋 Planned  |
 | [HUSKY-001](#husky-001-husky-v10-compatibility-deprecated-lines)  | 🛠️ Compat  | Husky v10 compatibility                | Low      | Easy       | Q1 2026  | 📋 Open     |
+| [INFRA-001](#infra-001-nginx-reverse-proxy-configuration)         | 🏗️ Infra   | Nginx reverse-proxy for WebSocket      | High     | Medium     | Q4 2025  | 📋 Planned  |
+| [INFRA-002](#infra-002-redis-adapter-multi-instance-scaling)      | 🏗️ Infra   | Redis adapter for horizontal scaling   | Medium   | Medium     | Q1 2026  | 📋 Planned  |
 
 **Legend**:
 
@@ -110,6 +112,87 @@
 - **Status**: Not Started
 - **Priority**: Low
 - **Description**: E2E tests don't generate coverage reports (by design, but could be optional)
+
+---
+
+## 🏗️ Infrastructure
+
+### INFRA-001: Nginx reverse-proxy configuration
+
+- **Status**: Planned
+- **Priority**: High
+- **Difficulty**: Medium
+- **Target**: Q4 2025
+- **Description**: Configure Nginx as reverse-proxy for production WebSocket deployment
+- **Documentation**: `docs/infrastructure/NGINX_SOCKETIO_GUIDE.md`
+- **Requirements**:
+  - WebSocket upgrade headers configuration
+  - Long-lived connection timeout settings (7d proxy_read_timeout)
+  - Sticky sessions for polling fallback (ip_hash or Redis)
+  - CORS headers for cross-origin polling
+  - SSL/TLS termination with wss:// support
+  - Custom logging format for WebSocket debugging
+- **Deliverables**:
+  - [ ] Production-ready `nginx.conf` template
+  - [ ] SSL certificate automation (Let's Encrypt)
+  - [ ] Health check endpoints configuration
+  - [ ] Monitoring integration (Prometheus/Grafana)
+  - [ ] Deployment runbook in `docs/infrastructure/`
+- **Acceptance Criteria**:
+  - [ ] WebSocket connections upgrade successfully
+  - [ ] Polling fallback works with sticky sessions
+  - [ ] Zero-downtime deployments supported
+  - [ ] Connection metrics exported to monitoring
+  - [ ] Load testing validates 1000+ concurrent connections
+- **References**:
+  - [Nginx WebSocket Proxying](https://nginx.org/en/docs/http/websocket.html)
+  - `docs/infrastructure/NGINX_SOCKETIO_GUIDE.md` - Complete configuration guide
+
+---
+
+### INFRA-002: Redis adapter multi-instance scaling
+
+- **Status**: Planned
+- **Priority**: Medium
+- **Difficulty**: Medium
+- **Target**: Q1 2026
+- **Description**: Implement Redis adapter for horizontal scaling across multiple backend instances
+- **Rationale**: Required for load balancing and high availability without sticky sessions
+- **Dependencies**: INFRA-001 (Nginx configuration)
+- **Implementation**:
+  - Socket.IO Redis adapter (`@socket.io/redis-adapter`)
+  - Redis Pub/Sub for cross-instance messaging
+  - Connection state synchronization
+  - Lock manager Redis backend (replace in-memory Map)
+- **Deliverables**:
+  - [ ] `RedisIoAdapter` class extending `IoAdapter`
+  - [ ] Redis connection health checks
+  - [ ] Failover strategy (Redis Sentinel or Cluster)
+  - [ ] Migration guide from single-instance to multi-instance
+  - [ ] Performance benchmarks (latency impact)
+- **Acceptance Criteria**:
+  - [ ] Events broadcast across all instances
+  - [ ] Lock state synchronized via Redis
+  - [ ] Graceful degradation on Redis failure
+  - [ ] <5ms latency overhead for broadcast
+  - [ ] Horizontal scaling verified (3+ instances)
+- **Configuration Example**:
+
+  ```typescript
+  // src/websocket-gateway/redis-io.adapter.ts
+  export class RedisIoAdapter extends IoAdapter {
+    async connectToRedis(): Promise<void> {
+      const pubClient = createClient({ url: 'redis://localhost:6379' });
+      const subClient = pubClient.duplicate();
+      await Promise.all([pubClient.connect(), subClient.connect()]);
+      this.adapterConstructor = createAdapter(pubClient, subClient);
+    }
+  }
+  ```
+
+- **References**:
+  - [Socket.IO Redis Adapter Docs](https://socket.io/docs/v4/redis-adapter/)
+  - `docs/infrastructure/NGINX_SOCKETIO_GUIDE.md` - Section "Long Polling - Soluzione 2: Redis Adapter"
 
 ---
 
