@@ -18,7 +18,9 @@ import {
 } from './constants';
 import {
   JoinResourceDto,
+  LeaveResourceDto,
   ResourceJoinedDto,
+  ResourceLeftDto,
   ResourceUser,
   ResourceUserDto,
 } from './dto/presence.dto';
@@ -380,6 +382,9 @@ export class WebSocketGateway
       }
     }
 
+    // BE-001.2: Cleanup presence tracking for all resources user was in
+    this.cleanupUserFromAllResources(client, connectionInfo);
+
     console.log('[DEBUG][WS][Gateway] Connection pool updated:', {
       totalConnections: this.connectionPool.size,
       userId: connectionInfo.userId,
@@ -715,6 +720,107 @@ export class WebSocketGateway
   }
 
   /**
+   * Remove user from resource presence tracking
+   */
+  private removeUserFromResource(resourceId: string, socketId: string): void {
+    const resourceUsersMap = this.resourceUsers.get(resourceId);
+    if (!resourceUsersMap) return;
+
+    resourceUsersMap.delete(socketId);
+
+    // Cleanup empty resource Map
+    if (resourceUsersMap.size === 0) {
+      this.resourceUsers.delete(resourceId);
+    }
+  }
+
+  /**
+   * Broadcast user:left event to OTHER users in resource
+   */
+  private broadcastUserLeft(
+    client: Socket,
+    resourceId: string,
+    userId: string,
+  ): void {
+    const connInfo = this.connectionPool.get(client.id);
+    if (!connInfo) return;
+
+    client.to(resourceId).emit(WsEvent.USER_LEFT, {
+      resourceId,
+      userId,
+      username: connInfo.username,
+      email: connInfo.email,
+    });
+  }
+
+  /**
+   * Cleanup user from all resources on disconnect (BE-001.2)
+   */
+  private cleanupUserFromAllResources(
+    client: Socket,
+    connInfo: ConnectionInfo,
+  ): void {
+    const resourcesUserWasIn: string[] = [];
+
+    // Find all resources user is in
+    for (const [resourceId, usersMap] of this.resourceUsers) {
+      if (usersMap.has(client.id)) {
+        resourcesUserWasIn.push(resourceId);
+      }
+    }
+
+    // Remove from each resource and broadcast
+    for (const resourceId of resourcesUserWasIn) {
+      this.removeUserFromResource(resourceId, client.id);
+      client.to(resourceId).emit(WsEvent.USER_LEFT, {
+        resourceId,
+        userId: connInfo.userId,
+        username: connInfo.username,
+        email: connInfo.email,
+        reason: 'disconnect',
+      });
+    }
+
+    if (resourcesUserWasIn.length > 0) {
+      console.log('[DEBUG][WS][Gateway] Cleanup user from resources:', {
+        userId: connInfo.userId,
+        resources: resourcesUserWasIn,
+      });
+    }
+  }
+
+  /**
+   * Validate leave resource request
+   * @returns Error response if invalid, undefined if valid
+   */
+  private validateLeaveResourcePayload(
+    payload: LeaveResourceDto,
+    connInfo: ConnectionInfo | undefined,
+  ): ResourceLeftDto | undefined {
+    // Check connection
+    if (!connInfo) {
+      return {
+        resourceId: payload?.resourceId || 'unknown',
+        userId: 'unknown',
+        success: false,
+        message: WsErrorMessage[WsErrorCode.JWT_INVALID],
+      };
+    }
+
+    // Check resourceId
+    if (!payload?.resourceId) {
+      return {
+        resourceId: 'unknown',
+        userId: connInfo.userId,
+        success: false,
+        message: 'resourceId is required',
+      };
+    }
+
+    return undefined;
+  }
+
+  /**
    * Validate join resource request
    * @returns Error response if invalid, undefined if valid
    */
@@ -834,6 +940,73 @@ export class WebSocketGateway
         success: true,
         joinedAt: resourceUser.joinedAt,
         users: this.getResourceUserList(resourceId),
+      },
+    };
+  }
+
+  /**
+   * WebSocket event handler: Leave resource (BE-001.2 Task 3)
+   *
+   * @param client - Socket.IO client
+   * @param payload - Leave resource request DTO
+   */
+  @SubscribeMessage(WsEvent.RESOURCE_LEAVE)
+  async handleLeaveResource(
+    client: Socket,
+    payload: LeaveResourceDto,
+  ): Promise<{ event: string; data: ResourceLeftDto }> {
+    const connInfo = this.connectionPool.get(client.id);
+
+    // Validate payload
+    const validationError = this.validateLeaveResourcePayload(
+      payload,
+      connInfo,
+    );
+    if (validationError) {
+      return { event: WsEvent.RESOURCE_LEFT, data: validationError };
+    }
+
+    if (!connInfo) {
+      throw new Error('Connection info missing after validation');
+    }
+
+    const { resourceId } = payload;
+
+    // Check if user is in resource
+    if (!this.resourceUsers.get(resourceId)?.has(client.id)) {
+      return {
+        event: WsEvent.RESOURCE_LEFT,
+        data: {
+          resourceId,
+          userId: connInfo.userId,
+          success: false,
+          message: WsErrorMessage[WsErrorCode.RESOURCE_NOT_JOINED],
+        },
+      };
+    }
+
+    // Remove user from presence tracking
+    this.removeUserFromResource(resourceId, client.id);
+
+    // Leave Socket.IO room
+    await client.leave(resourceId);
+
+    console.log('[DEBUG][WS][Gateway] User left resource:', {
+      resourceId,
+      userId: connInfo.userId,
+      remainingUsers: this.resourceUsers.get(resourceId)?.size || 0,
+    });
+
+    // Broadcast user:left to OTHER users in resource
+    this.broadcastUserLeft(client, resourceId, connInfo.userId);
+
+    // Return resource:left confirmation
+    return {
+      event: WsEvent.RESOURCE_LEFT,
+      data: {
+        resourceId,
+        userId: connInfo.userId,
+        success: true,
       },
     };
   }
