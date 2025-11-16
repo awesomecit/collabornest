@@ -1,11 +1,11 @@
 # EPIC-001: WebSocket Gateway Implementation
 
-> **Epic ID**: BE-001  
-> **Priority**: Critical  
-> **Difficulty**: High  
-> **Timeline**: Weeks 1-8 (8 settimane)  
-> **Team**: 2 backend developers  
-> **Status**: 🔄 In Progress  
+> **Epic ID**: BE-001
+> **Priority**: Critical
+> **Difficulty**: High
+> **Timeline**: Weeks 1-8 (8 settimane)
+> **Team**: 2 backend developers
+> **Status**: 🔄 In Progress
 > **Started**: November 16, 2025
 
 ---
@@ -70,8 +70,8 @@ graph TB
 
 ### Story BE-001.1: WebSocket Connection Management
 
-**Timeline**: Week 1-2  
-**Assignee**: TBD  
+**Timeline**: Week 1-2
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: WebSocket Connection with JWT Authentication
@@ -139,8 +139,8 @@ Feature: WebSocket Connection with JWT Authentication
 
 ### Story BE-001.2: Presence Tracking & Resource Rooms
 
-**Timeline**: Week 2-3  
-**Assignee**: TBD  
+**Timeline**: Week 2-3
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: User Presence and Resource Rooms
@@ -212,8 +212,8 @@ Feature: User Presence and Resource Rooms
 
 ### Story BE-001.3: Distributed Lock Management
 
-**Timeline**: Week 3-4  
-**Assignee**: TBD  
+**Timeline**: Week 3-4
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Distributed Resource Locking
@@ -296,8 +296,8 @@ Feature: Distributed Resource Locking
 
 ### Story BE-001.4: Y.js CRDT Integration
 
-**Timeline**: Week 4-6  
-**Assignee**: TBD  
+**Timeline**: Week 4-6
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Conflict-Free Replicated Data Type (CRDT) with Y.js
@@ -316,8 +316,8 @@ Feature: Distributed Resource Locking
 
 ### Story BE-001.5: RabbitMQ Cross-Instance Messaging
 
-**Timeline**: Week 5-6  
-**Assignee**: TBD  
+**Timeline**: Week 5-6
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Event Broadcasting Across Gateway Instances
@@ -336,8 +336,8 @@ Feature: Distributed Resource Locking
 
 ### Story BE-001.6: Audit Trail & NDJSON Logging
 
-**Timeline**: Week 6-7  
-**Assignee**: TBD  
+**Timeline**: Week 6-7
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Comprehensive Audit Logging
@@ -356,8 +356,8 @@ Feature: Distributed Resource Locking
 
 ### Story BE-001.7: Dead Connection Detection
 
-**Timeline**: Week 7-8  
-**Assignee**: TBD  
+**Timeline**: Week 7-8
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Error Handling & Recovery
@@ -376,8 +376,8 @@ Feature: Distributed Resource Locking
 
 ### Story BE-001.8: Performance Optimization & Load Testing
 
-**Timeline**: Week 8  
-**Assignee**: TBD  
+**Timeline**: Week 8
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Performance and Load Testing
@@ -422,5 +422,5 @@ Epic considered complete when ALL criteria met:
 
 ---
 
-**Last Updated**: November 16, 2025  
+**Last Updated**: November 16, 2025
 **Next Review**: December 1, 2025

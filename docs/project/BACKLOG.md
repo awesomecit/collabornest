@@ -1,6 +1,6 @@
 # Project Backlog
 
-> **Note**: This file tracks bugs, improvements, and future work discovered during development.  
+> **Note**: This file tracks bugs, improvements, and future work discovered during development.
 > For Epic/Story/Task planning, see:
 >
 > - **[ROADMAP.md](./ROADMAP.md)** - Development timeline and milestones
@@ -193,7 +193,7 @@ For timeline and milestones, see **[ROADMAP.md](./ROADMAP.md)**.
 
 ---
 
-**Last Updated**: November 16, 2025  
+**Last Updated**: November 16, 2025
 **Maintained By**: Development Team
 
 ---

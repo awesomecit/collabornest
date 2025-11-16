@@ -1,11 +1,11 @@
 # EPIC-002: Collaboration Widget SDK
 
-> **Epic ID**: FE-001  
-> **Priority**: High  
-> **Difficulty**: High  
-> **Timeline**: Weeks 9-13 (5 settimane)  
-> **Team**: 1 frontend developer  
-> **Status**: 📋 Planned  
+> **Epic ID**: FE-001
+> **Priority**: High
+> **Difficulty**: High
+> **Timeline**: Weeks 9-13 (5 settimane)
+> **Team**: 1 frontend developer
+> **Status**: 📋 Planned
 > **Start Date**: January 11, 2026 (estimated)
 
 ---
@@ -70,8 +70,8 @@ graph TB
 
 ### Story FE-001.1: Widget Auto-Discovery & Initialization
 
-**Timeline**: Week 9-10  
-**Assignee**: TBD  
+**Timeline**: Week 9-10
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Automatic Input Field Detection and Binding
@@ -133,8 +133,8 @@ Feature: Automatic Input Field Detection and Binding
 
 ### Story FE-001.2: Real-time Collaboration UI
 
-**Timeline**: Week 10-11  
-**Assignee**: TBD  
+**Timeline**: Week 10-11
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Visual Feedback for Collaboration
@@ -189,8 +189,8 @@ Feature: Visual Feedback for Collaboration
 
 ### Story FE-001.3: Offline Support & Queue Management
 
-**Timeline**: Week 11-12  
-**Assignee**: TBD  
+**Timeline**: Week 11-12
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Offline Editing and Synchronization
@@ -240,8 +240,8 @@ Feature: Offline Editing and Synchronization
 
 ### Story FE-001.4: CDN Distribution & Versioning
 
-**Timeline**: Week 12-13  
-**Assignee**: TBD  
+**Timeline**: Week 12-13
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: CDN Deployment with Semantic Versioning
@@ -261,8 +261,8 @@ Feature: Offline Editing and Synchronization
 
 ### Story FE-001.5: Integration Testing & Documentation
 
-**Timeline**: Week 13  
-**Assignee**: TBD  
+**Timeline**: Week 13
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Example Apps and Documentation
@@ -308,5 +308,5 @@ Epic considered complete when ALL criteria met:
 
 ---
 
-**Last Updated**: November 16, 2025  
+**Last Updated**: November 16, 2025
 **Next Review**: January 1, 2026

@@ -1,11 +1,11 @@
 # EPIC-003: Production Infrastructure
 
-> **Epic ID**: DEVOPS-001  
-> **Priority**: High  
-> **Difficulty**: Medium  
-> **Timeline**: Weeks 14-16 (3 settimane)  
-> **Team**: 1 DevOps engineer + 1 backend developer  
-> **Status**: 📋 Planned  
+> **Epic ID**: DEVOPS-001
+> **Priority**: High
+> **Difficulty**: Medium
+> **Timeline**: Weeks 14-16 (3 settimane)
+> **Team**: 1 DevOps engineer + 1 backend developer
+> **Status**: 📋 Planned
 > **Start Date**: February 15, 2026 (estimated)
 
 ---
@@ -88,8 +88,8 @@ graph TB
 
 ### Task DEVOPS-001.1: Terraform Infrastructure as Code
 
-**Timeline**: Week 14  
-**Assignee**: TBD  
+**Timeline**: Week 14
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Infrastructure as Code
@@ -150,8 +150,8 @@ Feature: Terraform-managed Infrastructure
 
 ### Task DEVOPS-001.2: Blue-Green Deployment Pipeline
 
-**Timeline**: Week 14  
-**Assignee**: TBD  
+**Timeline**: Week 14
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Blue-Green Deployment with GitHub Actions
@@ -224,8 +224,8 @@ Feature: CI/CD Pipeline with Blue-Green Deployment
 
 ### Task DEVOPS-001.3: Prometheus + Grafana Monitoring
 
-**Timeline**: Week 15  
-**Assignee**: TBD  
+**Timeline**: Week 15
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: System Health Monitoring and Alerting
@@ -287,8 +287,8 @@ Feature: Prometheus Metrics and Grafana Dashboards
 
 ### Task DEVOPS-001.4: Load Testing with Artillery
 
-**Timeline**: Week 15  
-**Assignee**: TBD  
+**Timeline**: Week 15
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Performance and Load Testing
@@ -349,8 +349,8 @@ Feature: Load Testing with Artillery
 
 ### Task DEVOPS-001.5: Disaster Recovery Plan & Backups
 
-**Timeline**: Week 16  
-**Assignee**: TBD  
+**Timeline**: Week 16
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Backup and Recovery Procedures
@@ -370,8 +370,8 @@ Feature: Load Testing with Artillery
 
 ### Task DEVOPS-001.6: Security Hardening & SSL
 
-**Timeline**: Week 16  
-**Assignee**: TBD  
+**Timeline**: Week 16
+**Assignee**: TBD
 **Status**: 📋 Planned
 
 #### Feature: Security Audit and Hardening
@@ -420,5 +420,5 @@ Epic considered complete when ALL criteria met:
 
 ---
 
-**Last Updated**: November 16, 2025  
+**Last Updated**: November 16, 2025
 **Next Review**: February 1, 2026

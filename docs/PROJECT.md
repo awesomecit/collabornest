@@ -1,6 +1,6 @@
 # 📚 DOCUMENTO UNICO - Real-Time Collaboration System for Healthcare
 
-> **📍 Navigation**: This is the complete technical specification. For document structure overview, see **[DOCUMENTATION_GUIDE.md](./DOCUMENTATION_GUIDE.md)**.  
+> **📍 Navigation**: This is the complete technical specification. For document structure overview, see **[DOCUMENTATION_GUIDE.md](./DOCUMENTATION_GUIDE.md)**.
 > **Quick Links**: [ROADMAP](./project/ROADMAP.md) | [Epic BE-001](./project/EPIC-001-websocket-gateway.md) | [Epic FE-001](./project/EPIC-002-collaboration-widget.md) | [Epic DEVOPS-001](./project/EPIC-003-production-infra.md)
 
 ---
