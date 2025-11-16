@@ -794,4 +794,284 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       expect(gateway.server.engine.opts.pingTimeout).toBe(20000); // Default 20s
     });
   });
+
+  /**
+   * BE-001.2: Presence Tracking & Resource Rooms - Unit Tests
+   *
+   * Test Strategy: Unit tests for presence tracking logic
+   * - Test handleJoinResource: valid join, duplicate join, invalid mode
+   * - Test handleLeaveResource: valid leave, not joined error
+   * - Test multi-resource support: user in multiple resources
+   * - Test disconnect cleanup: user removed from all resources
+   */
+  describe('BE-001.2: Presence Tracking & Resource Rooms', () => {
+    describe('handleJoinResource', () => {
+      it('should add user to resource and return success', async () => {
+        // GIVEN - Connected client
+        const mockClient = createMockSocket('user123') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(mockClient);
+
+        // WHEN - Join resource
+        const result = await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/123',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+
+        // THEN - Success response
+        expect(result.event).toBe('resource:joined');
+        expect(result.data.success).toBe(true);
+        expect(result.data.resourceId).toBe('resource:page:/patient/123');
+        expect(result.data.userId).toBe('user123');
+        expect(result.data.users).toHaveLength(1);
+        expect(result.data.users[0].userId).toBe('user123');
+        expect(result.data.users[0].mode).toBe('editor');
+        expect(mockClient.join).toHaveBeenCalledWith(
+          'resource:page:/patient/123',
+        );
+      });
+
+      it('should reject duplicate join with error', async () => {
+        // GIVEN - User already in resource
+        const mockClient = createMockSocket('user456') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(mockClient);
+        await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/456',
+          resourceType: 'page',
+          mode: 'viewer',
+        });
+
+        // WHEN - Try to join same resource again
+        const result = await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/456',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+
+        // THEN - Error response
+        expect(result.data.success).toBe(false);
+        expect(result.data.message).toContain('already joined');
+      });
+
+      it('should support multiple resources per user', async () => {
+        // GIVEN - Connected client
+        const mockClient = createMockSocket('user789') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(mockClient);
+
+        // WHEN - Join two different resources
+        const result1 = await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/111',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+        const result2 = await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/222',
+          resourceType: 'page',
+          mode: 'viewer',
+        });
+
+        // THEN - Both joins succeed
+        expect(result1.data.success).toBe(true);
+        expect(result2.data.success).toBe(true);
+        expect(mockClient.join).toHaveBeenCalledTimes(2);
+      });
+
+      it('should broadcast user:joined to other users', async () => {
+        // GIVEN - Two connected clients in same resource
+        const client1 = createMockSocket('user1') as Socket;
+        const client2 = createMockSocket('user2') as Socket;
+        client1.join = jest.fn().mockResolvedValue(undefined);
+        client2.join = jest.fn().mockResolvedValue(undefined);
+        const mockEmit = jest.fn();
+        client1.to = jest.fn().mockReturnValue({ emit: mockEmit });
+        client2.to = jest.fn().mockReturnValue({ emit: mockEmit });
+
+        await gateway.handleConnection(client1);
+        await gateway.handleConnection(client2);
+        await gateway.handleJoinResource(client1, {
+          resourceId: 'resource:page:/patient/999',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+
+        // WHEN - Second user joins
+        await gateway.handleJoinResource(client2, {
+          resourceId: 'resource:page:/patient/999',
+          resourceType: 'page',
+          mode: 'viewer',
+        });
+
+        // THEN - user:joined broadcast sent
+        expect(client2.to).toHaveBeenCalledWith('resource:page:/patient/999');
+        expect(mockEmit).toHaveBeenCalledWith(
+          'user:joined',
+          expect.objectContaining({
+            resourceId: 'resource:page:/patient/999',
+            userId: 'user2',
+            username: 'user_user2',
+          }),
+        );
+      });
+    });
+
+    describe('handleLeaveResource', () => {
+      it('should remove user from resource and return success', async () => {
+        // GIVEN - User in resource
+        const mockClient = createMockSocket('user555') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        mockClient.leave = jest.fn().mockResolvedValue(undefined);
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(mockClient);
+        await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/555',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+
+        // WHEN - Leave resource
+        const result = await gateway.handleLeaveResource(mockClient, {
+          resourceId: 'resource:page:/patient/555',
+        });
+
+        // THEN - Success response
+        expect(result.event).toBe('resource:left');
+        expect(result.data.success).toBe(true);
+        expect(result.data.resourceId).toBe('resource:page:/patient/555');
+        expect(result.data.userId).toBe('user555');
+        expect(mockClient.leave).toHaveBeenCalledWith(
+          'resource:page:/patient/555',
+        );
+      });
+
+      it('should reject leave if user not in resource', async () => {
+        // GIVEN - User NOT in resource
+        const mockClient = createMockSocket('user666') as Socket;
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(mockClient);
+
+        // WHEN - Try to leave
+        const result = await gateway.handleLeaveResource(mockClient, {
+          resourceId: 'resource:page:/patient/666',
+        });
+
+        // THEN - Error response
+        expect(result.data.success).toBe(false);
+        expect(result.data.message).toContain('not in this resource');
+      });
+
+      it('should broadcast user:left to other users', async () => {
+        // GIVEN - Two users in same resource
+        const client1 = createMockSocket('userA') as Socket;
+        const client2 = createMockSocket('userB') as Socket;
+        client1.join = jest.fn().mockResolvedValue(undefined);
+        client2.join = jest.fn().mockResolvedValue(undefined);
+        client1.leave = jest.fn().mockResolvedValue(undefined);
+        const mockEmit = jest.fn();
+        client1.to = jest.fn().mockReturnValue({ emit: mockEmit });
+        client2.to = jest.fn().mockReturnValue({ emit: mockEmit });
+
+        await gateway.handleConnection(client1);
+        await gateway.handleConnection(client2);
+        await gateway.handleJoinResource(client1, {
+          resourceId: 'resource:page:/patient/AAA',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+        await gateway.handleJoinResource(client2, {
+          resourceId: 'resource:page:/patient/AAA',
+          resourceType: 'page',
+          mode: 'viewer',
+        });
+
+        // WHEN - First user leaves
+        await gateway.handleLeaveResource(client1, {
+          resourceId: 'resource:page:/patient/AAA',
+        });
+
+        // THEN - user:left broadcast sent
+        expect(client1.to).toHaveBeenCalledWith('resource:page:/patient/AAA');
+        expect(mockEmit).toHaveBeenCalledWith(
+          'user:left',
+          expect.objectContaining({
+            resourceId: 'resource:page:/patient/AAA',
+            userId: 'userA',
+            username: 'user_userA',
+          }),
+        );
+      });
+    });
+
+    describe('Disconnect Cleanup', () => {
+      it('should remove user from all resources on disconnect', async () => {
+        // GIVEN - User in multiple resources
+        const mockClient = createMockSocket('user888') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(mockClient);
+        await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/R1',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+        await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/R2',
+          resourceType: 'page',
+          mode: 'viewer',
+        });
+
+        // WHEN - Disconnect
+        gateway.handleDisconnect(mockClient);
+
+        // THEN - User removed from all resources (verify via re-join attempt)
+        const reconnectedClient = createMockSocket('user888') as Socket;
+        reconnectedClient.join = jest.fn().mockResolvedValue(undefined);
+        reconnectedClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        await gateway.handleConnection(reconnectedClient);
+
+        const result = await gateway.handleJoinResource(reconnectedClient, {
+          resourceId: 'resource:page:/patient/R1',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+
+        expect(result.data.success).toBe(true);
+        expect(result.data.users).toHaveLength(1); // Only new connection
+      });
+
+      it('should broadcast user:left with disconnect reason', async () => {
+        // GIVEN - User in resource
+        const mockClient = createMockSocket('user999') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        const mockEmit = jest.fn();
+        mockClient.to = jest.fn().mockReturnValue({ emit: mockEmit });
+        await gateway.handleConnection(mockClient);
+        await gateway.handleJoinResource(mockClient, {
+          resourceId: 'resource:page:/patient/disconnect-test',
+          resourceType: 'page',
+          mode: 'editor',
+        });
+
+        // WHEN - Disconnect
+        gateway.handleDisconnect(mockClient);
+
+        // THEN - user:left with reason='disconnect'
+        expect(mockClient.to).toHaveBeenCalledWith(
+          'resource:page:/patient/disconnect-test',
+        );
+        expect(mockEmit).toHaveBeenCalledWith(
+          'user:left',
+          expect.objectContaining({
+            userId: 'user999',
+            reason: 'disconnect',
+          }),
+        );
+      });
+    });
+  });
 });
