@@ -368,9 +368,235 @@ export class RedisLockService {
 
   /**
    * Check if a specific user holds a lock
+   *
+   * @param resourceId - Resource identifier
+   * @param userId - User to check
+   * @returns true if user holds lock, false otherwise
    */
-  async hasLock(_resourceId: string, _userId: string): Promise<boolean> {
-    // TODO: Implement after Monday meeting decisions
-    throw new Error(this.NOT_IMPLEMENTED_ERROR);
+  async hasLock(resourceId: string, userId: string): Promise<boolean> {
+    if (!this.redis) {
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
+      return false;
+    }
+
+    try {
+      const lockHolder = await this.getLockHolder(resourceId);
+      return lockHolder?.userId === userId;
+    } catch (error) {
+      this.logger.error(
+        `Error checking lock for ${resourceId} by ${userId}`,
+        error,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Release all locks held by a user (for disconnect cleanup)
+   *
+   * @param userId - User whose locks should be released
+   * @returns Array of released resource IDs
+   *
+   * Implementation:
+   * - Scan all lock keys (SCAN with pattern lock:*)
+   * - Filter by userId in lock value
+   * - Delete matching locks atomically
+   * - Return list of released resources for broadcast
+   *
+   * Used in WebSocketGateway.handleDisconnect() (BE-001.3)
+   */
+  async releaseAllUserLocks(userId: string): Promise<string[]> {
+    if (!this.redis) {
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
+      return [];
+    }
+
+    try {
+      const releasedResources = await this.scanAndReleaseUserLocks(userId);
+      this.logLockReleaseSummary(userId, releasedResources.length);
+      return releasedResources;
+    } catch (error) {
+      this.logger.error(`Error releasing locks for user ${userId}`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Scan Redis for all lock keys owned by user and release them
+   */
+  private async scanAndReleaseUserLocks(userId: string): Promise<string[]> {
+    const releasedResources: string[] = [];
+    const stream = this.redis!.scanStream({ match: 'lock:*', count: 100 });
+
+    for await (const keys of stream) {
+      const released = await this.processLockKeys(keys, userId);
+      releasedResources.push(...released);
+    }
+
+    return releasedResources;
+  }
+
+  /**
+   * Process batch of lock keys and release those owned by user
+   */
+  private async processLockKeys(
+    keys: string[],
+    userId: string,
+  ): Promise<string[]> {
+    const released: string[] = [];
+
+    for (const key of keys) {
+      const resourceId = await this.releaseLockIfOwnedByUser(key, userId);
+      if (resourceId) {
+        released.push(resourceId);
+      }
+    }
+
+    return released;
+  }
+
+  /**
+   * Release lock if owned by user, return resourceId if released
+   */
+  private async releaseLockIfOwnedByUser(
+    key: string,
+    userId: string,
+  ): Promise<string | null> {
+    try {
+      const lockData = await this.redis!.get(key);
+      if (!lockData) return null;
+
+      const lockInfo = JSON.parse(lockData);
+      if (lockInfo.userId !== userId) return null;
+
+      await this.redis!.del(key);
+      const resourceId = key.replace('lock:', '');
+      this.logger.log(
+        `Lock auto-released on disconnect: ${resourceId} by ${userId}`,
+      );
+      return resourceId;
+    } catch (error) {
+      this.logger.error(`Error processing lock key ${key}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Log summary of released locks
+   */
+  private logLockReleaseSummary(userId: string, count: number): void {
+    if (count > 0) {
+      this.logger.log(
+        `Released ${count} locks for disconnected user ${userId}`,
+      );
+    }
+  }
+
+  /**
+   * Get all active locks (for debugging/monitoring)
+   *
+   * @returns Array of lock info objects
+   */
+  async getAllLocks(): Promise<
+    Array<{
+      resourceId: string;
+      userId: string;
+      acquiredAt: number;
+      expiresAt: number;
+    }>
+  > {
+    if (!this.redis) {
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
+      return [];
+    }
+
+    try {
+      return await this.scanAndParseLocks();
+    } catch (error) {
+      this.logger.error('Error fetching all locks', error);
+      return [];
+    }
+  }
+
+  /**
+   * Scan and parse all lock keys from Redis
+   */
+  private async scanAndParseLocks(): Promise<
+    Array<{
+      resourceId: string;
+      userId: string;
+      acquiredAt: number;
+      expiresAt: number;
+    }>
+  > {
+    const locks: Array<{
+      resourceId: string;
+      userId: string;
+      acquiredAt: number;
+      expiresAt: number;
+    }> = [];
+
+    const stream = this.redis!.scanStream({ match: 'lock:*', count: 100 });
+
+    for await (const keys of stream) {
+      const parsedLocks = await this.parseLockKeys(keys);
+      locks.push(...parsedLocks);
+    }
+
+    return locks;
+  }
+
+  /**
+   * Parse batch of lock keys into lock info objects
+   */
+  private async parseLockKeys(keys: string[]): Promise<
+    Array<{
+      resourceId: string;
+      userId: string;
+      acquiredAt: number;
+      expiresAt: number;
+    }>
+  > {
+    const locks: Array<{
+      resourceId: string;
+      userId: string;
+      acquiredAt: number;
+      expiresAt: number;
+    }> = [];
+
+    for (const key of keys) {
+      const lockInfo = await this.parseLockKey(key);
+      if (lockInfo) {
+        locks.push(lockInfo);
+      }
+    }
+
+    return locks;
+  }
+
+  /**
+   * Parse single lock key, return null if corrupted
+   */
+  private async parseLockKey(key: string): Promise<{
+    resourceId: string;
+    userId: string;
+    acquiredAt: number;
+    expiresAt: number;
+  } | null> {
+    try {
+      const lockData = await this.redis!.get(key);
+      if (!lockData) return null;
+
+      const lockInfo = JSON.parse(lockData);
+      return {
+        resourceId: key.replace('lock:', ''),
+        userId: lockInfo.userId,
+        acquiredAt: lockInfo.acquiredAt,
+        expiresAt: lockInfo.expiresAt,
+      };
+    } catch (error) {
+      this.logger.error(`Error parsing lock ${key}`, error);
+      return null;
+    }
   }
 }

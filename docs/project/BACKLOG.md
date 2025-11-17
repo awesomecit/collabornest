@@ -30,6 +30,7 @@
 | [BE-001.3](#be-0013-distributed-locks-production-blocker)         | 🔴 Blocker | Editor locking (data loss prevention)  | Critical | High       | Week 3-4 | 🔄 Active   |
 | [DEBT-002](#debt-002-standardize-error-handling-architecture)     | 🔧 Debt    | Standardize error handling             | Medium   | Medium     | Q1 2026  | 📋 Open     |
 | [FEATURE-005](#feature-005-audit-trail-structured-logging)        | 📋 Feature | Audit trail & Elastic/OpenSearch       | High     | Medium     | Q2 2026  | 📋 Planned  |
+| [FEATURE-006](#feature-006-asyncapi-schema-generation)            | 📋 Feature | AsyncAPI schema auto-generation        | Low      | Easy       | Q2 2026  | 📋 Planned  |
 
 **Legend**:
 
@@ -660,6 +661,81 @@ Create tickets ONLY if real problem emerges:
 - EPIC-001.md (BE-001.6: Audit Trail, lines 391-410)
 - [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html)
 - [Winston Transport Docs](https://github.com/winstonjs/winston#transports)
+
+---
+
+### FEATURE-006: AsyncAPI Schema Generation
+
+**Status**: 📋 Planned | **Target**: Q2 2026 | **Priority**: Low | **Effort**: Easy
+
+**Context**: WebSocket events documented manually in EPIC-001, BDD tests, and UI guide. AsyncAPI standard provides machine-readable schema for auto-generating client SDKs, testing tools, and interactive documentation.
+
+**Problem**:
+
+- WebSocket events scattered across multiple docs (EPIC-001, BDD_TEST_COVERAGE, UI_INTEGRATION_GUIDE)
+- No single source of truth for event contracts
+- Manual maintenance when events change
+- No type-safe client SDK generation
+- No AsyncAPI Studio integration for interactive docs
+
+**Proposed Solution**:
+
+1. **Generate AsyncAPI 3.0 Schema from Code**:
+   - Annotate event handlers with decorators: `@AsyncApiEvent()`, `@AsyncApiPayload()`
+   - Runtime reflection to extract event names, payloads, descriptions
+   - Output: `docs/asyncapi.yaml` (auto-generated on build)
+
+2. **AsyncAPI Decorators** (example):
+
+   ```typescript
+   @AsyncApiEvent({
+     channel: 'resource:joined',
+     description: 'Emitted when user successfully joins a resource',
+     message: JoinResourceResponseDto,
+   })
+   async handleJoinResource(@MessageBody() payload: JoinResourceDto) {
+     // ...
+   }
+   ```
+
+3. **Build Integration**:
+   - `npm run asyncapi:generate` - Generates `docs/asyncapi.yaml`
+   - Pre-commit hook validates schema
+   - CI/CD publishes to AsyncAPI Studio
+
+4. **Deliverables**:
+   - [ ] AsyncAPI decorator library (`@nestjs-asyncapi/decorators`)
+   - [ ] Schema generator script (`scripts/generate-asyncapi.js`)
+   - [ ] CI/CD integration (validate + publish)
+   - [ ] AsyncAPI Studio link in README
+   - [ ] Auto-generate TypeScript client SDK (optional)
+
+**Acceptance Criteria**:
+
+- [ ] All WebSocket events documented in `asyncapi.yaml`
+- [ ] Schema auto-generated from NestJS decorators
+- [ ] CI validates schema on every commit
+- [ ] AsyncAPI Studio URL in README (https://studio.asyncapi.com/)
+- [ ] Deprecation warnings for removed events
+- [ ] Versioned schemas (v1, v2) for breaking changes
+
+**Benefits**:
+
+- Single source of truth (code = docs)
+- Auto-generate client SDKs (TypeScript, Python, Java)
+- Interactive documentation (AsyncAPI Studio)
+- Contract testing (validate payloads against schema)
+- Deprecation tracking (breaking changes audit)
+
+**Timeline**: 2-3 days (1 day decorators, 1 day generator, 1 day CI/docs)
+
+**Dependencies**: None (pure documentation automation)
+
+**References**:
+
+- [AsyncAPI Specification](https://www.asyncapi.com/docs/reference/specification/v3.0.0)
+- [AsyncAPI Studio](https://studio.asyncapi.com/)
+- [NestJS Microservices Decorators](https://docs.nestjs.com/microservices/basics) (pattern reference)
 
 ---
 

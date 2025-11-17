@@ -249,6 +249,52 @@ Feature: User Presence and Resource Rooms
     When a new user joins
     Then I should receive "USER_JOINED" event immediately
     And my presence list should show 5 total users
+
+  Scenario: Multi-tab presence tracking (cross-tab awareness)
+    Given Alice joins sub-resource "document:999/tab:patient-info"
+    And Bob joins sub-resource "document:999/tab:diagnosis"
+    And Charlie joins sub-resource "document:999/tab:procedure"
+    When any user joins a sub-resource of "document:999"
+    Then they should receive "resource:all_users" event with:
+      """json
+      {
+        "parentResourceId": "document:999",
+        "currentSubResourceId": "document:999/tab:patient-info",
+        "totalCount": 3,
+        "subResources": [
+          {
+            "subResourceId": "document:999/tab:patient-info",
+            "users": [{
+              "userId": "alice",
+              "username": "alice@example.com",
+              "mode": "editor",
+              "joinedAt": "2025-11-17T10:30:00.000Z"
+            }]
+          },
+          {
+            "subResourceId": "document:999/tab:diagnosis",
+            "users": [{
+              "userId": "bob",
+              "username": "bob@example.com",
+              "mode": "viewer",
+              "joinedAt": "2025-11-17T10:31:00.000Z"
+            }]
+          },
+          {
+            "subResourceId": "document:999/tab:procedure",
+            "users": [{
+              "userId": "charlie",
+              "username": "charlie@example.com",
+              "mode": "editor",
+              "joinedAt": "2025-11-17T10:32:00.000Z"
+            }]
+          }
+        ]
+      }
+      """
+    And this event is ONLY emitted for hierarchical resource IDs (parent/subType:subId)
+    And each user sees all users across ALL tabs of the parent resource
+    And my presence list should show 5 total users
     When a user disconnects
     Then I should receive "USER_LEFT" event
     And my presence list should show 4 users

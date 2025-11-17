@@ -406,4 +406,151 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
       expect(lockInfo?.userId).toBe(USER_A);
     });
   });
+
+  /**
+   * Scenario 7: Release all user locks (disconnect cleanup)
+   *
+   * GIVEN user holds multiple locks
+   * WHEN user disconnects
+   * THEN all user's locks are released atomically
+   *  AND list of released resources is returned
+   *  AND other users' locks remain intact
+   */
+  describe('Scenario 7: Release all user locks', () => {
+    it('should release all locks held by user on disconnect', async () => {
+      // GIVEN - User A holds 3 locks
+      const resource1 = 'document:doc-001/field:title';
+      const resource2 = 'document:doc-001/field:content';
+      const resource3 = 'document:doc-002/field:summary';
+
+      await service.acquireLock(resource1, USER_A);
+      await service.acquireLock(resource2, USER_A);
+      await service.acquireLock(resource3, USER_A);
+
+      // AND - User B holds 1 lock (should not be affected)
+      const resource4 = 'document:doc-003/field:notes';
+      await service.acquireLock(resource4, USER_B);
+
+      // WHEN - User A disconnects (release all locks)
+      const releasedResources = await service.releaseAllUserLocks(USER_A);
+
+      // THEN - All User A's locks released
+      expect(releasedResources).toHaveLength(3);
+      expect(releasedResources).toEqual(
+        expect.arrayContaining([resource1, resource2, resource3]),
+      );
+
+      // AND - User B's lock still intact
+      const userBLock = await service.getLockHolder(resource4);
+      expect(userBLock?.userId).toBe(USER_B);
+
+      // AND - All User A's locks are gone
+      const lock1 = await service.getLockHolder(resource1);
+      const lock2 = await service.getLockHolder(resource2);
+      const lock3 = await service.getLockHolder(resource3);
+      expect(lock1).toBeNull();
+      expect(lock2).toBeNull();
+      expect(lock3).toBeNull();
+    });
+
+    it('should return empty array if user has no locks', async () => {
+      // GIVEN - User has no locks
+      // WHEN - Release all locks
+      const releasedResources = await service.releaseAllUserLocks(USER_A);
+
+      // THEN - Empty array returned
+      expect(releasedResources).toHaveLength(0);
+    });
+  });
+
+  /**
+   * Scenario 8: Check if user holds lock
+   *
+   * GIVEN user holds lock
+   * WHEN checking lock ownership
+   * THEN returns true for lock holder, false otherwise
+   */
+  describe('Scenario 8: Check if user holds lock', () => {
+    it('should return true if user holds lock', async () => {
+      // GIVEN - User A holds lock
+      await service.acquireLock(TEST_RESOURCE_ID, USER_A);
+
+      // WHEN - Check if User A holds lock
+      const hasLock = await service.hasLock(TEST_RESOURCE_ID, USER_A);
+
+      // THEN - Returns true
+      expect(hasLock).toBe(true);
+    });
+
+    it('should return false if different user holds lock', async () => {
+      // GIVEN - User A holds lock
+      await service.acquireLock(TEST_RESOURCE_ID, USER_A);
+
+      // WHEN - Check if User B holds lock
+      const hasLock = await service.hasLock(TEST_RESOURCE_ID, USER_B);
+
+      // THEN - Returns false
+      expect(hasLock).toBe(false);
+    });
+
+    it('should return false if no lock exists', async () => {
+      // GIVEN - No lock exists
+      // WHEN - Check if User A holds lock
+      const hasLock = await service.hasLock(TEST_RESOURCE_ID, USER_A);
+
+      // THEN - Returns false
+      expect(hasLock).toBe(false);
+    });
+  });
+
+  /**
+   * Scenario 9: Get all active locks (monitoring)
+   *
+   * GIVEN multiple users hold locks
+   * WHEN fetching all active locks
+   * THEN returns complete list with metadata
+   */
+  describe('Scenario 9: Get all active locks', () => {
+    it('should return all active locks with metadata', async () => {
+      // GIVEN - Multiple users hold locks
+      const resource1 = 'document:doc-001';
+      const resource2 = 'document:doc-002';
+      const resource3 = 'document:doc-003';
+
+      await service.acquireLock(resource1, USER_A);
+      await service.acquireLock(resource2, USER_B);
+      await service.acquireLock(resource3, USER_A);
+
+      // WHEN - Fetch all locks
+      const allLocks = await service.getAllLocks();
+
+      // THEN - Returns 3 locks
+      expect(allLocks).toHaveLength(3);
+
+      // AND - Each lock has required metadata
+      allLocks.forEach(lock => {
+        expect(lock).toMatchObject({
+          resourceId: expect.any(String),
+          userId: expect.any(String),
+          acquiredAt: expect.any(Number),
+          expiresAt: expect.any(Number),
+        });
+      });
+
+      // AND - Contains all expected resources
+      const resourceIds = allLocks.map(l => l.resourceId);
+      expect(resourceIds).toEqual(
+        expect.arrayContaining([resource1, resource2, resource3]),
+      );
+    });
+
+    it('should return empty array if no locks exist', async () => {
+      // GIVEN - No locks
+      // WHEN - Fetch all locks
+      const allLocks = await service.getAllLocks();
+
+      // THEN - Returns empty array
+      expect(allLocks).toHaveLength(0);
+    });
+  });
 });
