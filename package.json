@@ -27,6 +27,7 @@
     "test:bdd": "node scripts/bdd-tests/test-runner.js",
     "test:bdd:connection": "node scripts/bdd-tests/be001-1-connection.test.js",
     "test:bdd:presence": "node scripts/bdd-tests/be001-2-presence.test.js",
+    "test:jwt": "node scripts/generate-test-jwt.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"*.json\" \"*.md\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"*.json\" \"*.md\"",
     "quality": "npm run format:check && npm run lint:check",

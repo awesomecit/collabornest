@@ -1,8 +1,8 @@
 # Backend Response to UI Team Feedback
 
-**From**: Backend Team (Antonio Cittadino)  
-**To**: UI Team  
-**Date**: November 16, 2025  
+**From**: Backend Team (Antonio Cittadino)
+**To**: UI Team
+**Date**: November 16, 2025
 **Re**: WebSocket API Validation - BE-001.3 Prioritization Confirmed
 
 ---
@@ -23,7 +23,7 @@ You are **100% correct**. The current implementation allows concurrent editors w
 
 ### Implementation Plan (BE-001.3 - EXPEDITED)
 
-**Timeline**: Week 3-4 (November 18 - December 1, 2025)  
+**Timeline**: Week 3-4 (November 18 - December 1, 2025)
 **Priority**: 🔴 **CRITICAL PATH** (blocks production deployment)
 
 #### Phase 1: Basic Locking (Week 3)
@@ -452,14 +452,14 @@ Week 7-8: BE-001.4 Y.js CRDT Integration (DEFERRED)
 
 ## Bottom Line
 
-✅ **BE-001.3 is now top priority**  
-✅ **Phase 1 (basic locking) ships in 9 days**  
-✅ **Phase 2 (hierarchical) ships in 16 days**  
+✅ **BE-001.3 is now top priority**
+✅ **Phase 1 (basic locking) ships in 9 days**
+✅ **Phase 2 (hierarchical) ships in 16 days**
 ✅ **No breaking changes to BE-001.1 or BE-001.2**
 
 Your feedback was **exactly what we needed** to prioritize correctly. Thank you for thorough validation! 🎯
 
 ---
 
-**Contact**: antonio.cittadino@hospital.it  
+**Contact**: <antonio.cittadino@hospital.it>
 **Status Updates**: Daily in `#backend-team` Slack channel

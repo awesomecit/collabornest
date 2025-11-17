@@ -364,11 +364,13 @@ For timeline and milestones, see **[ROADMAP.md](./ROADMAP.md)**.
   - **Production Risk**: Last-save-wins causes data loss when multiple staff edit same surgical documentation
   - **Compliance**: HIPAA audit trail incomplete without lock tracking
 - **Real-World Scenario**:
+
   ```plaintext
   Dr. Smith (Surgeon): Opens operation report, edits diagnosis section
   Nurse Jane (Assistant): Opens same operation report, edits diagnosis section
   Both click Save → Last save wins → One person's changes lost
   ```
+
 - **Required Solution**: Exclusive editor locking with TTL and auto-downgrade
 - **Implementation Plan**: See [BACKEND_RESPONSE_TO_UI_FEEDBACK.md](../BACKEND_RESPONSE_TO_UI_FEEDBACK.md)
 - **Deliverables**:
