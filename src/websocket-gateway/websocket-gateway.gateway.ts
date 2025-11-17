@@ -19,11 +19,14 @@ import {
 import {
   JoinResourceDto,
   LeaveResourceDto,
+  ResourceAllUsersDto,
   ResourceJoinedDto,
   ResourceLeftDto,
   ResourceUser,
   ResourceUserDto,
+  SubResourceUsers,
 } from './dto/presence.dto';
+import { getParentResourceId } from './types/resource.types';
 
 /**
  * Connection Information
@@ -727,6 +730,105 @@ export class WebSocketGateway
   }
 
   /**
+   * Create "already joined" error response
+   */
+  private createAlreadyJoinedResponse(
+    resourceId: string,
+    connInfo: ConnectionInfo,
+  ): { event: string; data: ResourceJoinedDto } {
+    return {
+      event: WsEvent.RESOURCE_JOINED,
+      data: {
+        resourceId,
+        userId: connInfo.userId,
+        success: false,
+        joinedAt: new Date().toISOString(),
+        users: this.getResourceUserList(resourceId),
+        message: WsErrorMessage[WsErrorCode.RESOURCE_ALREADY_JOINED],
+      },
+    };
+  }
+
+  /**
+   * Emit cross-tab presence tracking (resource:all_users)
+   *
+   * If resourceId is a sub-resource (has parent), emits resource:all_users event
+   * showing ALL users across ALL sub-resources (e.g., all tabs of a document).
+   *
+   * @param client - Socket.IO client to emit to
+   * @param resourceId - Current resource ID
+   */
+  private emitCrossTabPresence(client: Socket, resourceId: string): void {
+    const allUsers = this.getAllSubResourceUsers(resourceId);
+    if (allUsers) {
+      client.emit(WsEvent.RESOURCE_ALL_USERS, allUsers);
+      console.log('[DEBUG][WS][Gateway] Sent all users for parent resource:', {
+        parentResourceId: allUsers.parentResourceId,
+        totalSubResources: allUsers.subResources.length,
+        totalUsers: allUsers.totalCount,
+      });
+    }
+  }
+
+  /**
+   * Get all users across all sub-resources of a parent resource
+   *
+   * Example: For "document:123/tab:patient", returns users from ALL tabs:
+   * - document:123/tab:patient
+   * - document:123/tab:diagnosis
+   * - document:123/tab:procedure
+   *
+   * @param currentResourceId - Current sub-resource ID (e.g., "document:123/tab:patient")
+   * @returns DTO with all users grouped by sub-resource
+   */
+  private getAllSubResourceUsers(
+    currentResourceId: string,
+  ): ResourceAllUsersDto | null {
+    const parentResourceId = getParentResourceId(currentResourceId);
+
+    // If no parent (top-level resource), return null
+    if (!parentResourceId) {
+      return null;
+    }
+
+    const subResources: SubResourceUsers[] = [];
+    let totalCount = 0;
+
+    // Iterate through all resource rooms to find matching sub-resources
+    for (const [resourceId, usersMap] of this.resourceUsers.entries()) {
+      // Check if this resource is a sub-resource of the parent
+      if (
+        resourceId.startsWith(parentResourceId + '/') ||
+        resourceId === currentResourceId
+      ) {
+        const users = Array.from(usersMap.values()).map(u => ({
+          userId: u.userId,
+          username: u.username,
+          email: u.email,
+          socketId: u.socketId,
+          joinedAt: u.joinedAt,
+          mode: u.mode,
+        }));
+
+        if (users.length > 0) {
+          subResources.push({
+            subResourceId: resourceId,
+            users,
+          });
+          totalCount += users.length;
+        }
+      }
+    }
+
+    return {
+      parentResourceId,
+      currentSubResourceId: currentResourceId,
+      subResources,
+      totalCount,
+    };
+  }
+
+  /**
    * Remove user from resource presence tracking
    */
   private removeUserFromResource(resourceId: string, socketId: string): void {
@@ -904,17 +1006,9 @@ export class WebSocketGateway
 
     const { resourceId, mode } = payload;
 
-    // Check if user already in resource
+    // Check if already joined
     if (this.resourceUsers.get(resourceId)?.has(client.id)) {
-      const errorData: ResourceJoinedDto = {
-        resourceId,
-        userId: connInfo.userId,
-        success: false,
-        joinedAt: new Date().toISOString(),
-        users: this.getResourceUserList(resourceId),
-        message: WsErrorMessage[WsErrorCode.RESOURCE_ALREADY_JOINED],
-      };
-      return { event: WsEvent.RESOURCE_JOINED, data: errorData };
+      return this.createAlreadyJoinedResponse(resourceId, connInfo);
     }
 
     // Join Socket.IO room
@@ -937,6 +1031,9 @@ export class WebSocketGateway
 
     // Broadcast user:joined to OTHER users in resource
     this.broadcastUserJoined(client, resourceId, resourceUser);
+
+    // Emit cross-tab presence if sub-resource
+    this.emitCrossTabPresence(client, resourceId);
 
     // Return resource:joined with current user list
     return {

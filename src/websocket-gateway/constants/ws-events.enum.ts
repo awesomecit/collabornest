@@ -32,6 +32,7 @@ export enum WsEvent {
   RESOURCE_LEFT = 'resource:left', // Server → Client: Successfully left
   RESOURCE_GET_USERS = 'resource:get_users', // Client → Server: Request user list
   RESOURCE_USERS = 'resource:users', // Server → Client: User list response
+  RESOURCE_ALL_USERS = 'resource:all_users', // Server → Client: All users across all sub-resources
 
   // Presence tracking broadcast events (BE-001.2)
   USER_JOINED = 'user:joined', // Server → All clients: Someone joined

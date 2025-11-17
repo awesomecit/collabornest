@@ -489,6 +489,254 @@ async function runTests() {
   watcherUser.disconnect();
   await wait(200);
 
+  // ============================================================================
+  // Scenario 8: Multi-tab presence tracking (UI Feedback: All users across tabs)
+  // ============================================================================
+  await scenario(
+    'Multiple users in different tabs see all users across tabs',
+    async () => {
+      log('Scenario', 'Multi-tab presence tracking (document with tabs)');
+
+      const userAliceToken = createValidJWT('alice');
+      const userBobToken = createValidJWT('bob');
+      const userCharlieToken = createValidJWT('charlie');
+
+      let userAlice, userBob, userCharlie;
+      let aliceAllUsers, bobAllUsers, charlieAllUsers;
+
+      await given('Alice connects and joins tab:patient-info', async () => {
+        userAlice = await connectClient(userAliceToken);
+        log('Alice connected', { userId: 'alice' });
+
+        // Listen for resource:all_users event
+        userAlice.on('resource:all_users', data => {
+          aliceAllUsers = data;
+        });
+
+        const response = await new Promise(resolve => {
+          userAlice.emit(
+            WsEvent.RESOURCE_JOIN,
+            {
+              resourceId: 'document:999/tab:patient-info',
+              resourceType: 'document',
+              mode: 'editor',
+            },
+            resolve,
+          );
+        });
+
+        log('Alice joined patient-info tab', response);
+        assertEqual(response.success, true, 'Alice join should succeed');
+        assertEqual(
+          response.users.length,
+          1,
+          'Alice should be alone in this tab',
+        );
+      });
+
+      await and('Bob connects and joins tab:diagnosis', async () => {
+        userBob = await connectClient(userBobToken);
+        log('Bob connected', { userId: 'bob' });
+
+        userBob.on('resource:all_users', data => {
+          bobAllUsers = data;
+        });
+
+        const response = await new Promise(resolve => {
+          userBob.emit(
+            WsEvent.RESOURCE_JOIN,
+            {
+              resourceId: 'document:999/tab:diagnosis',
+              resourceType: 'document',
+              mode: 'viewer',
+            },
+            resolve,
+          );
+        });
+
+        log('Bob joined diagnosis tab', response);
+        assertEqual(response.success, true, 'Bob join should succeed');
+        assertEqual(
+          response.users.length,
+          1,
+          'Bob should be alone in this tab',
+        );
+
+        await wait(100); // Wait for resource:all_users emission
+      });
+
+      await when('Charlie joins tab:procedure', async () => {
+        userCharlie = await connectClient(userCharlieToken);
+        log('Charlie connected', { userId: 'charlie' });
+
+        charlieAllUsers = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for resource:all_users'));
+          }, 3000);
+
+          userCharlie.on('resource:all_users', data => {
+            clearTimeout(timeout);
+            resolve(data);
+          });
+
+          userCharlie.emit(WsEvent.RESOURCE_JOIN, {
+            resourceId: 'document:999/tab:procedure',
+            resourceType: 'document',
+            mode: 'editor',
+          });
+        });
+
+        log('Charlie joined procedure tab', { charlieAllUsers });
+      });
+
+      await then(
+        'Charlie receives resource:all_users with ALL users from ALL tabs',
+        async () => {
+          assertTrue(
+            charlieAllUsers !== undefined,
+            'resource:all_users should be emitted',
+          );
+          assertEqual(
+            charlieAllUsers.parentResourceId,
+            'document:999',
+            'Parent resource should be document:999',
+          );
+          assertEqual(
+            charlieAllUsers.currentSubResourceId,
+            'document:999/tab:procedure',
+            'Current sub-resource should be procedure tab',
+          );
+          assertEqual(
+            charlieAllUsers.totalCount,
+            3,
+            'Total count should be 3 users across all tabs',
+          );
+          assertEqual(
+            charlieAllUsers.subResources.length,
+            3,
+            'Should have 3 sub-resources (tabs)',
+          );
+
+          log('All users data received by Charlie', charlieAllUsers);
+        },
+      );
+
+      await and('All tabs are represented in the response', async () => {
+        const tabIds = charlieAllUsers.subResources.map(sr => sr.subResourceId);
+        assertContains(
+          tabIds,
+          'document:999/tab:patient-info',
+          'patient-info tab should be included',
+        );
+        assertContains(
+          tabIds,
+          'document:999/tab:diagnosis',
+          'diagnosis tab should be included',
+        );
+        assertContains(
+          tabIds,
+          'document:999/tab:procedure',
+          'procedure tab should be included',
+        );
+
+        log('All tabs represented', { tabIds });
+      });
+
+      await and('Each tab shows correct user count', async () => {
+        const patientTab = charlieAllUsers.subResources.find(
+          sr => sr.subResourceId === 'document:999/tab:patient-info',
+        );
+        const diagnosisTab = charlieAllUsers.subResources.find(
+          sr => sr.subResourceId === 'document:999/tab:diagnosis',
+        );
+        const procedureTab = charlieAllUsers.subResources.find(
+          sr => sr.subResourceId === 'document:999/tab:procedure',
+        );
+
+        assertEqual(
+          patientTab.users.length,
+          1,
+          'patient-info tab should have 1 user (Alice)',
+        );
+        assertEqual(
+          patientTab.users[0].userId,
+          'alice',
+          'patient-info tab user should be Alice',
+        );
+
+        assertEqual(
+          diagnosisTab.users.length,
+          1,
+          'diagnosis tab should have 1 user (Bob)',
+        );
+        assertEqual(
+          diagnosisTab.users[0].userId,
+          'bob',
+          'diagnosis tab user should be Bob',
+        );
+
+        assertEqual(
+          procedureTab.users.length,
+          1,
+          'procedure tab should have 1 user (Charlie)',
+        );
+        assertEqual(
+          procedureTab.users[0].userId,
+          'charlie',
+          'procedure tab user should be Charlie',
+        );
+
+        log('User counts verified per tab', {
+          patientTab: patientTab.users.length,
+          diagnosisTab: diagnosisTab.users.length,
+          procedureTab: procedureTab.users.length,
+        });
+      });
+
+      await and(
+        'resource:joined shows only current tab users (not all tabs)',
+        async () => {
+          const charlieJoined = await new Promise(resolve => {
+            userCharlie.emit(
+              WsEvent.RESOURCE_LEAVE,
+              { resourceId: 'document:999/tab:procedure' },
+              () => {
+                userCharlie.emit(
+                  WsEvent.RESOURCE_JOIN,
+                  {
+                    resourceId: 'document:999/tab:procedure',
+                    resourceType: 'document',
+                    mode: 'editor',
+                  },
+                  resolve,
+                );
+              },
+            );
+          });
+
+          assertEqual(
+            charlieJoined.users.length,
+            1,
+            'resource:joined should show only current tab users',
+          );
+          assertEqual(
+            charlieJoined.users[0].userId,
+            'charlie',
+            'resource:joined should show only Charlie in this tab',
+          );
+
+          log('resource:joined correctly scoped to current tab', charlieJoined);
+        },
+      );
+
+      // Cleanup
+      userAlice.disconnect();
+      userBob.disconnect();
+      userCharlie.disconnect();
+      await wait(200);
+    },
+  );
+
   // Print summary
   const executor = getExecutor();
   executor.printSummary();

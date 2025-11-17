@@ -35,9 +35,26 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
     exit 1
 fi
 
+# Get project name from package.json
+PROJECT_NAME=$(node -p "require('./package.json').name")
+print_status "Project: $PROJECT_NAME"
+
 # Get current version from package.json
 CURRENT_VERSION=$(node -p "require('./package.json').version")
 print_status "Current version: $CURRENT_VERSION"
+
+# Get repository owner/name from git remote
+GIT_REMOTE=$(git remote get-url origin 2>/dev/null || echo "")
+if [ -n "$GIT_REMOTE" ]; then
+    # Extract owner/repo from various git URL formats
+    # SSH: git@github.com:owner/repo.git
+    # HTTPS: https://github.com/owner/repo.git
+    REPO_PATH=$(echo "$GIT_REMOTE" | sed -E 's|^.*[:/]([^/]+/[^/]+)\.git$|\1|')
+    print_status "Repository: $REPO_PATH"
+else
+    print_warning "No git remote found, using default repository path"
+    REPO_PATH="owner/repo"
+fi
 
 # Get the last tag
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -190,13 +207,13 @@ cat >> $OUTPUT_FILE << EOF
 
 ## 🔗 Links
 
-- [Full Changelog](https://github.com/awesomecit/todo.app.be/compare/$LAST_TAG...v$CURRENT_VERSION)
-- [Issues](https://github.com/awesomecit/todo.app.be/issues)
+- [Full Changelog](https://github.com/$REPO_PATH/compare/$LAST_TAG...v$CURRENT_VERSION)
+- [Issues](https://github.com/$REPO_PATH/issues)
 - [Documentation](./docs/)
 
 ---
 
-**Full changelog**: https://github.com/awesomecit/todo.app.be/compare/$LAST_TAG...v$CURRENT_VERSION
+**Full changelog**: https://github.com/$REPO_PATH/compare/$LAST_TAG...v$CURRENT_VERSION
 EOF
 
 print_success "Release notes generated: $OUTPUT_FILE"

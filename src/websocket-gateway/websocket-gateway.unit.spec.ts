@@ -922,6 +922,141 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
           }),
         );
       });
+
+      it('should emit resource:all_users when joining a sub-resource', async () => {
+        // GIVEN - Multiple users in different tabs of same document
+        const client1 = createMockSocket('user1') as Socket;
+        const client2 = createMockSocket('user2') as Socket;
+        const client3 = createMockSocket('user3') as Socket;
+
+        client1.join = jest.fn().mockResolvedValue(undefined);
+        client2.join = jest.fn().mockResolvedValue(undefined);
+        client3.join = jest.fn().mockResolvedValue(undefined);
+        client1.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        client2.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        client3.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        client1.emit = jest.fn();
+        client2.emit = jest.fn();
+        client3.emit = jest.fn();
+
+        await gateway.handleConnection(client1);
+        await gateway.handleConnection(client2);
+        await gateway.handleConnection(client3);
+
+        // User1 joins tab:patient-info
+        await gateway.handleJoinResource(client1, {
+          resourceId: 'document:123/tab:patient-info',
+          resourceType: 'document',
+          mode: 'editor',
+        });
+
+        // User2 joins tab:diagnosis
+        await gateway.handleJoinResource(client2, {
+          resourceId: 'document:123/tab:diagnosis',
+          resourceType: 'document',
+          mode: 'viewer',
+        });
+
+        // WHEN - User3 joins tab:procedure
+        await gateway.handleJoinResource(client3, {
+          resourceId: 'document:123/tab:procedure',
+          resourceType: 'document',
+          mode: 'editor',
+        });
+
+        // THEN - Client3 receives resource:all_users with ALL users from ALL tabs
+        expect(client3.emit).toHaveBeenCalledWith(
+          'resource:all_users',
+          expect.objectContaining({
+            parentResourceId: 'document:123',
+            currentSubResourceId: 'document:123/tab:procedure',
+            totalCount: 3,
+            subResources: expect.arrayContaining([
+              expect.objectContaining({
+                subResourceId: 'document:123/tab:patient-info',
+                users: expect.arrayContaining([
+                  expect.objectContaining({ userId: 'user1', mode: 'editor' }),
+                ]),
+              }),
+              expect.objectContaining({
+                subResourceId: 'document:123/tab:diagnosis',
+                users: expect.arrayContaining([
+                  expect.objectContaining({ userId: 'user2', mode: 'viewer' }),
+                ]),
+              }),
+              expect.objectContaining({
+                subResourceId: 'document:123/tab:procedure',
+                users: expect.arrayContaining([
+                  expect.objectContaining({ userId: 'user3', mode: 'editor' }),
+                ]),
+              }),
+            ]),
+          }),
+        );
+      });
+
+      it('should NOT emit resource:all_users when joining a top-level resource', async () => {
+        // GIVEN - Client joins top-level resource (no parent)
+        const mockClient = createMockSocket('user999') as Socket;
+        mockClient.join = jest.fn().mockResolvedValue(undefined);
+        mockClient.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        mockClient.emit = jest.fn();
+        await gateway.handleConnection(mockClient);
+
+        // WHEN - Join top-level resource (no sub-resource)
+        await gateway.handleJoinResource(mockClient, {
+          resourceId: 'document:456',
+          resourceType: 'document',
+          mode: 'editor',
+        });
+
+        // THEN - resource:all_users NOT emitted
+        expect(mockClient.emit).not.toHaveBeenCalledWith(
+          'resource:all_users',
+          expect.anything(),
+        );
+      });
+
+      it('should show only current tab users in resource:joined response', async () => {
+        // GIVEN - User1 in tab:patient, User2 in tab:diagnosis
+        const client1 = createMockSocket('user1') as Socket;
+        const client2 = createMockSocket('user2') as Socket;
+
+        client1.join = jest.fn().mockResolvedValue(undefined);
+        client2.join = jest.fn().mockResolvedValue(undefined);
+        client1.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        client2.to = jest.fn().mockReturnValue({ emit: jest.fn() });
+        client1.emit = jest.fn();
+        client2.emit = jest.fn();
+
+        await gateway.handleConnection(client1);
+        await gateway.handleConnection(client2);
+
+        await gateway.handleJoinResource(client1, {
+          resourceId: 'document:789/tab:patient',
+          resourceType: 'document',
+          mode: 'editor',
+        });
+
+        // WHEN - User2 joins different tab
+        const result = await gateway.handleJoinResource(client2, {
+          resourceId: 'document:789/tab:diagnosis',
+          resourceType: 'document',
+          mode: 'viewer',
+        });
+
+        // THEN - resource:joined shows only users in CURRENT tab (user2)
+        expect(result.data.users).toHaveLength(1);
+        expect(result.data.users[0].userId).toBe('user2');
+
+        // BUT resource:all_users was emitted showing ALL tabs
+        expect(client2.emit).toHaveBeenCalledWith(
+          'resource:all_users',
+          expect.objectContaining({
+            totalCount: 2, // Both users across all tabs
+          }),
+        );
+      });
     });
 
     describe('handleLeaveResource', () => {

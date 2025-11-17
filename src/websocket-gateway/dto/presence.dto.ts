@@ -224,3 +224,38 @@ export interface ResourceUsersDto {
   /** Total user count */
   count: number;
 }
+
+/**
+ * Sub-Resource User Group
+ *
+ * Groups users by sub-resource (e.g., tab)
+ */
+export interface SubResourceUsers {
+  /** Sub-resource ID (e.g., "document:123/tab:patient-info") */
+  subResourceId: string;
+
+  /** Users in this sub-resource */
+  users: ResourceUserDto[];
+}
+
+/**
+ * All Users Response DTO
+ *
+ * Server → Client event: resource:all_users
+ *
+ * Sent when joining a sub-resource to show ALL users across ALL sub-resources
+ * of the parent resource (e.g., all tabs of a document)
+ */
+export interface ResourceAllUsersDto {
+  /** Parent resource ID (e.g., "document:123") */
+  parentResourceId: string;
+
+  /** Current sub-resource ID (e.g., "document:123/tab:patient-info") */
+  currentSubResourceId: string;
+
+  /** All users grouped by sub-resource */
+  subResources: SubResourceUsers[];
+
+  /** Total user count across all sub-resources */
+  totalCount: number;
+}
