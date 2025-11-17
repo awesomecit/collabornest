@@ -1,6 +1,6 @@
 # Project Backlog
 
-> **Note**: This file tracks bugs, improvements, and future work discovered during development.
+> **Note**| [BE-001.3](#be-0013-distributed-locks-production-blocker) | 🔴 Blocker | Editor locking (data loss prevention) | Critical | High | Week 3-4 | 🟢 98% Done | This file tracks bugs, improvements, and future work discovered during development.
 > For Epic/Story/Task planning, see:
 >
 > - **[ROADMAP.md](./ROADMAP.md)** - Development timeline and milestones

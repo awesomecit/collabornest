@@ -97,22 +97,22 @@ gantt
 
 ### Milestones
 
-| Week | Milestone             | Deliverable                                        | Status        |
-| ---- | --------------------- | -------------------------------------------------- | ------------- |
-| 1-2  | Connection Management | JWT auth, pool tracking, graceful shutdown         | ✅ Completed  |
-| 2-3  | Heartbeat & Presence  | Activity ping/pong, room join/leave, presence sync | � In Progress |
-| 3-4  | Distributed Locks     | Redis-backed locks, TTL, deadlock prevention       | 📋 Planned    |
-| 4-6  | Y.js CRDT             | Conflict-free editing, state synchronization       | 📋 Planned    |
-| 5-6  | RabbitMQ Broadcasting | Event pub/sub, multi-instance coordination         | 📋 Planned    |
-| 6-7  | Audit Logging         | NDJSON format, PostgreSQL persistence              | 📋 Planned    |
-| 7-8  | Error Handling        | Circuit breaker, retry logic, graceful degradation | 📋 Planned    |
-| 8    | Load Testing          | 500+ concurrent users, <200ms P99 latency          | 📋 Planned    |
+| Week | Milestone             | Deliverable                                        | Status       |
+| ---- | --------------------- | -------------------------------------------------- | ------------ |
+| 1-2  | Connection Management | JWT auth, pool tracking, graceful shutdown         | ✅ Completed |
+| 2-3  | Heartbeat & Presence  | Activity ping/pong, room join/leave, presence sync | ✅ Completed |
+| 3-4  | Distributed Locks     | Redis-backed locks, TTL, deadlock prevention       | � 98% Done   |
+| 4-6  | Y.js CRDT             | Conflict-free editing, state synchronization       | 📋 Planned   |
+| 5-6  | RabbitMQ Broadcasting | Event pub/sub, multi-instance coordination         | 📋 Planned   |
+| 6-7  | Audit Logging         | NDJSON format, PostgreSQL persistence              | 📋 Planned   |
+| 7-8  | Error Handling        | Circuit breaker, retry logic, graceful degradation | 📋 Planned   |
+| 8    | Load Testing          | 500+ concurrent users, <200ms P99 latency          | 📋 Planned   |
 
 ### Success Criteria
 
 - [x] **WebSocket connection with JWT authentication** ✅ COMPLETE
 - [x] **Real-time presence tracking (join/leave events)** ✅ COMPLETE (single-instance)
-- [ ] 🔴 **CRITICAL: Redis-backed distributed locks (< 5ms latency)** - Week 3-4 (UI BLOCKER)
+- [x] � **Redis-backed distributed locks (< 5ms latency)** ✅ COMPLETE (Week 3, Nov 17) - UI UNBLOCKED
 - [ ] Redis Streams event broadcasting across instances - Week 5-6
 - [ ] Y.js document synchronization - Week 7-8 (DEFERRED post-locking)
 - [ ] NDJSON audit logs with 10-year retention - Week 6-7
