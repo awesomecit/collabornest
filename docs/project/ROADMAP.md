@@ -1,27 +1,44 @@
 # CollaborNest - Product Roadmap
 
 > **Last Updated**: November 16, 2025
-> **Vers| Wee| W| Wee| Week | Milestone | Deliverable | Status | Priority |
-> | ---- | --------------------- | -------------------------------------------------- | ------------- | -------- |
-> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed | - |
-> | 2-3 | Heartbeat & Presence | Activity ping/pong, room join/leave, presence sync | ✅ Completed | - |
-> | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 🔄 In Progress | 🔴 CRITICAL |
-> | 5-6 | Presence Persistence | Redis Streams, event broadcasting, scalability | 📋 Planned | High |
-> | 7-8 | Y.js CRDT | Conflict-free editing, state synchronization | 📋 Deferred | Medium |estone | Deliverable | Status |
-> | ---- | --------------------- | -------------------------------------------------- | ------------ |
-> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
-> | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detect) | ✅ Completed |
-> | 2-3 | Presence Tracking | Room join/leave, presence sync, user notifications | ✅ Completed |
-> | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 📋 Planned | Milestone | Deliverable | Status |
-> | ---- | --------------------- | -------------------------------------------------- | ------------- |
-> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown, ping/pong | ✅ Completed |
-> | 2-3 | Heartbeat & Presence | Activity tracking, room join/leave, presence sync | 🔄 In Progress |Milestone | Deliverable | Status |
-> | ---- | --------------------- | -------------------------------------------------- | -------------- |
-> | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
-> | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detection) | ✅ Completed |
-> | 2-3 | Room & Presence | Room join/leave, presence sync, user notifications | 📋 Planned |
-> | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 📋 Planned |: 1.0
-> **Status\*\*: Active Development
+> **Vers| Wee| W| Wee| Week | M| 3 | Distrib- [x] **WebSocket connection with JWT authentication\*\* ✅ COMPLETE
+
+- [x] **Real-time presence tracking (join/leave events)** ✅ COMPLETE (single-instance)
+- [x] 🟢 **Redis-backed distributed locks (< 5ms latency)** ✅ COMPLETE (Week 3, Nov 17) - UI UNBLOCKED
+- [ ] **Redis presence persistence (multi-instance ready)** - Week 4, Nov 18-25 (NEXT)
+- [ ] **Circuit breakers & graceful degradation** - Week 4, Nov 18-25 (NEXT)
+- [ ] **External webhook integration (EMR/PACS push)** - Week 5, Nov 25-29
+- [ ] Redis Streams event broadcasting across instances - Week 5-6 (DEFERRED)
+- [ ] Y.js document synchronization - Week 7-8 (DEFERRED post-webhook)
+- [ ] NDJSON audit logs with 10-year retention - Week 6-7
+- [ ] Load test: 500+ concurrent users with < 200ms P99 latency - Week 8cks | Redis-backed locks, TTL, deadlock prevention | 🟢 98% Done |
+      | 4 | Redis Presence Persistence | Multi-instance state coordination, Redis migration | 📋 Next |
+      | 4 | Circuit Breakers | Graceful degradation, health checks, retry logic | 📋 Next |
+      | 5 | External API Integration | Webhook receiver for EMR/PACS push notifications | 📋 Planned |
+      | 5-6 | RabbitMQ Broadcasting | Event pub/sub, cross-instance messaging (DEFERRED) | 📋 Deferred |
+      | 6-7 | Audit Logging | NDJSON format, PostgreSQL persistence | 📋 Planned |
+      | 7-8 | Y.js CRDT | Conflict-free editing, state synchronization (DEFERRED) | 📋 Deferred |
+      | 8 | Load Testing | 500+ concurrent users, <200ms P99 latency | 📋 Planned |ne | Deliverable | Status | Priority |
+  > | ---- | --------------------- | -------------------------------------------------- | ------------- | -------- |
+  > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed | - |
+  > | 2-3 | Heartbeat & Presence | Activity ping/pong, room join/leave, presence sync | ✅ Completed | - |
+  > | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 🔄 In Progress | 🔴 CRITICAL |
+  > | 5-6 | Presence Persistence | Redis Streams, event broadcasting, scalability | 📋 Planned | High |
+  > | 7-8 | Y.js CRDT | Conflict-free editing, state synchronization | 📋 Deferred | Medium |estone | Deliverable | Status |
+  > | ---- | --------------------- | -------------------------------------------------- | ------------ |
+  > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
+  > | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detect) | ✅ Completed |
+  > | 2-3 | Presence Tracking | Room join/leave, presence sync, user notifications | ✅ Completed |
+  > | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 📋 Planned | Milestone | Deliverable | Status |
+  > | ---- | --------------------- | -------------------------------------------------- | ------------- |
+  > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown, ping/pong | ✅ Completed |
+  > | 2-3 | Heartbeat & Presence | Activity tracking, room join/leave, presence sync | 🔄 In Progress |Milestone | Deliverable | Status |
+  > | ---- | --------------------- | -------------------------------------------------- | -------------- |
+  > | 1-2 | Connection Management | JWT auth, pool tracking, graceful shutdown | ✅ Completed |
+  > | 2 | Transport Heartbeat | Socket.IO ping/pong configuration (zombie detection) | ✅ Completed |
+  > | 2-3 | Room & Presence | Room join/leave, presence sync, user notifications | 📋 Planned |
+  > | 3-4 | Distributed Locks | Redis-backed locks, TTL, deadlock prevention | 📋 Planned |: 1.0
+  > \*\*Status\*\*: Active Development
 
 ---
 

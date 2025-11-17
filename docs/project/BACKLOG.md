@@ -5,7 +5,16 @@
 >
 > - **[ROADMAP.md](./ROADMAP.md)** - Development timeline and milestones
 > - **[EPIC-001](./EPIC-001-websocket-gateway.md)** - WebSocket Gateway Implementation
-> - **[EPIC-002](./EPIC-002-collaboration-widget.md)** - Collaboration Widget SDK
+> - \*\*[EPIC-002](./### BE-001.3: Distributed Locks (Production Blocker)
+
+- **Status**: 🟢 **98% COMPLETE** (Week 3, November 17, 2025)
+- **Priority**: 🔴 **CRITICAL** (UI Team Blocker - Unblocked ✅)
+- **Meeting Date**: November 18, 2025 (25 min)
+- **Epic**: [EPIC-001: WebSocket Gateway](./EPIC-001-websocket-gateway.md)
+- **Description**: Backend currently allows multiple editors in the same resource with no conflict detection or locking mechanism. High risk of data loss in production healthcare environment.
+
+**Current State**: All lock flows implemented and tested (329/329 tests passing). UI team unblocked with Quick Start guide. Only documentation refinement remaining.2-collaboration-widget.md)\*\* - Collaboration Widget SDK
+
 > - **[EPIC-003](./EPIC-003-production-infra.md)** - Production Infrastructure
 >
 > For new work, create GitHub Issues using [templates](../../.github/ISSUE_TEMPLATE/).
@@ -585,6 +594,258 @@ Create tickets ONLY if real problem emerges:
 - Meeting outcome: `docs/project/BE-001.3-MEETING-OUTCOME.md`
 - Epic: `docs/project/EPIC-001-websocket-gateway.md` (BE-001.3)
 - Redis schema: `lock:{resourceType}:{id}:{section}` → `userId` (TTL 300s)
+
+---
+
+### BE-001.5: Redis Presence Persistence (Multi-Instance Foundation)
+
+**Status**: 📋 **PLANNED** (Week 4, November 18-25, 2025)
+**Priority**: 🟡 **HIGH** (Enables Production Multi-Pod Deployment)
+**Epic**: [EPIC-001: WebSocket Gateway](./EPIC-001-websocket-gateway.md)
+**Description**: Current presence tracking uses in-memory Map (single-instance only). Migrate to Redis to enable horizontal scaling and multi-pod coordination.
+
+#### Problem
+
+```typescript
+// ❌ CURRENT: In-memory (single-instance limitation)
+private connectedClients = new Map<string, Socket>();
+private userPresence = new Map<string, { userId, documentId, rooms }>();
+// Cannot share state across multiple gateway instances
+```
+
+#### Solution Architecture
+
+**Redis Key Patterns**:
+
+```redis
+# User presence (TTL 5 min, auto-cleanup on disconnect)
+presence:user:{userId} → { socketId, lastSeen, rooms: [] }
+
+# Room membership (TTL 10 min, extended on activity)
+presence:room:{roomId} → Set(userId1, userId2, ...)
+
+# Socket metadata (TTL 5 min, cleanup on disconnect)
+presence:socket:{socketId} → { userId, connectedAt, lastActivity }
+```
+
+**New Service**:
+
+```typescript
+@Injectable()
+export class RedisPresenceService {
+  async setUserPresence(userId: string, data: PresenceData): Promise<void>;
+  async removeUserPresence(userId: string): Promise<void>;
+  async getRoomMembers(roomId: string): Promise<string[]>;
+  async getUserPresence(userId: string): Promise<PresenceData | null>;
+  async addUserToRoom(userId: string, roomId: string): Promise<void>;
+  async removeUserFromRoom(userId: string, roomId: string): Promise<void>;
+}
+```
+
+#### Deliverables
+
+- [ ] `RedisPresenceService` implementation with unit tests
+- [ ] Gateway migration: `Map` → `RedisPresenceService`
+- [ ] Backward compatibility: graceful fallback to in-memory if Redis down (circuit breaker prep)
+- [ ] BDD tests: 2 gateway instances, 1 Redis, verify cross-instance presence sync
+- [ ] Performance benchmark: <10ms p99 for presence operations
+
+#### Success Metrics
+
+- Multi-instance deployment working (2+ gateway pods share presence state)
+- Lock events propagate across instances (User A in Pod 1 sees User B's lock from Pod 2)
+- Zero data loss on pod restart (presence persisted in Redis)
+- Graceful degradation (Redis down → single-instance in-memory mode)
+
+#### Timeline
+
+- **Effort**: 4-6 hours
+- **Target**: Week 4 (November 18-25, 2025)
+
+---
+
+### BE-001.7: Circuit Breakers & Resilience (Production Stability)
+
+**Status**: 📋 **PLANNED** (Week 4, November 18-25, 2025)
+**Priority**: 🟡 **HIGH** (Prevents Cascade Failures in Production)
+**Epic**: [EPIC-001: WebSocket Gateway](./EPIC-001-websocket-gateway.md)
+**Description**: Implement circuit breaker pattern for Redis/PostgreSQL failures. Prevent cascade failures, enable graceful degradation.
+
+#### Problem
+
+- Redis/PostgreSQL failures block entire gateway (no fallback)
+- Cascading failures crash all pods (no isolation)
+- No health check endpoint (Kubernetes cannot detect unhealthy pods)
+
+#### Solution Architecture
+
+**Circuit Breaker Pattern**:
+
+```typescript
+enum CircuitState {
+  CLOSED,
+  OPEN,
+  HALF_OPEN,
+}
+
+@Injectable()
+export class CircuitBreakerService {
+  private state = CircuitState.CLOSED;
+  private failures = 0;
+  private threshold = 5; // 5 consecutive failures → OPEN
+  private timeout = 30000; // 30s before HALF_OPEN retry
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === CircuitState.OPEN) {
+      throw new CircuitOpenError('Service unavailable, using fallback');
+    }
+    try {
+      const result = await fn();
+      this.onSuccess(); // Reset failures, CLOSED state
+      return result;
+    } catch (error) {
+      this.onFailure(); // Increment failures, maybe → OPEN
+      throw error;
+    }
+  }
+}
+```
+
+**Graceful Degradation**:
+
+- **Redis down**: Fallback to in-memory Map (single-instance mode, limited features)
+- **PostgreSQL down**: Skip audit logs, continue serving WebSocket connections
+- **RabbitMQ down**: Direct client messaging (no cross-instance broadcast)
+
+**Health Check Endpoint**:
+
+```typescript
+GET /health → {
+  status: 'healthy' | 'degraded' | 'unhealthy',
+  redis: { connected: true, latency: 2 },
+  postgres: { connected: true, latency: 5 },
+  rabbitmq: { connected: false, error: 'Connection refused' }
+}
+```
+
+#### Deliverables
+
+- [ ] `CircuitBreakerService` with configurable thresholds
+- [ ] Wrap Redis calls with circuit breaker (RedisLockService, RedisPresenceService)
+- [ ] Health check endpoint `/health` with dependency status
+- [ ] Graceful degradation tests: kill Redis → verify in-memory fallback
+- [ ] Exponential backoff retry logic (1s, 2s, 4s, 8s, max 30s)
+
+#### Success Metrics
+
+- Redis failure does NOT crash gateway (fallback to in-memory)
+- Health check responds in <50ms
+- Circuit breaker opens after 5 failures (prevents spam)
+- Automatic recovery when service restored (HALF_OPEN → CLOSED)
+
+#### Timeline
+
+- **Effort**: 3-4 hours
+- **Target**: Week 4 (November 18-25, 2025)
+- **Dependency**: After BE-001.5 (Redis Presence)
+
+---
+
+### NEW: External API Integration (WebHook Receiver)
+
+**Status**: 📋 **PLANNED** (Week 5, November 25-29, 2025)
+**Priority**: 🔴 **CRITICAL** (Core Product Feature - External System Push Notifications)
+**Epic**: NEW - Cross-System Real-Time Sync
+**Description**: Enable external systems (EMR, PACS, HL7 feeds) to push resource updates via HTTP webhook. Broadcast updates to WebSocket clients in real-time (no polling).
+
+#### Problem
+
+**Current State**: UI polls REST API every 5-30s for resource updates (inefficient, latency)
+
+**Target State**: External system → POST webhook → WebSocket broadcast → UI updates instantly
+
+#### Solution Architecture
+
+**Webhook Controller**:
+
+```typescript
+// POST /api/webhooks/resource-updated
+interface WebhookPayload {
+  resourceType: 'document' | 'operationReport' | 'patient';
+  resourceId: string; // "doc:123", "patient:456"
+  action: 'created' | 'updated' | 'deleted' | 'signed';
+  data: any; // Full resource payload or partial diff
+  timestamp: string; // ISO 8601
+  source: string; // 'EMR', 'PACS', 'HL7_FEED'
+  signature: string; // HMAC-SHA256 for validation
+}
+
+@Controller('webhooks')
+export class WebhookController {
+  @Post('resource-updated')
+  async handleResourceUpdate(@Body() payload: WebhookPayload) {
+    // 1. Validate HMAC signature (prevent spoofing)
+    this.validateSignature(payload);
+
+    // 2. Query Redis: which users are subscribed to this resource?
+    const room = `resource:${payload.resourceType}:${payload.resourceId}`;
+    const members = await this.presenceService.getRoomMembers(room);
+
+    // 3. Broadcast to WebSocket clients
+    this.wsGateway.server.to(room).emit('RESOURCE_UPDATED', {
+      resourceId: payload.resourceId,
+      action: payload.action,
+      data: payload.data,
+      timestamp: payload.timestamp,
+      source: payload.source,
+    });
+
+    return { status: 'broadcasted', recipients: members.length };
+  }
+}
+```
+
+**Complete Flow**:
+
+```
+External System (EMR/PACS)
+  → POST /api/webhooks/resource-updated
+    { resourceId: "doc:123", action: "updated", data: {...}, signature: "hmac..." }
+      → WebhookController validates HMAC signature
+        → Query Redis: getRoomMembers("resource:doc:123")
+          → Gateway broadcasts WebSocket event to all clients in room
+            → UI clients receive RESOURCE_UPDATED, update DOM
+              → Zero polling, instant updates
+```
+
+#### Security
+
+- **HMAC Signature**: Shared secret with external system (WEBHOOK_SECRET env var)
+- **Rate Limiting**: Max 100 req/min per source IP (prevent DDoS)
+- **IP Whitelist**: Only allow known external system IPs
+- **JWT Option**: Alternative to HMAC for authenticated webhooks
+
+#### Deliverables
+
+- [ ] `WebhookController` with POST `/api/webhooks/resource-updated`
+- [ ] HMAC signature validation (`validateSignature()` method)
+- [ ] Gateway `broadcastToRoom()` helper method
+- [ ] Rate limiting middleware (100 req/min per source)
+- [ ] E2E test: simulate external POST → verify WebSocket clients receive event
+- [ ] Documentation: External System Integration Guide (setup HMAC, webhook URL, payload format)
+
+#### Success Metrics
+
+- Webhook → WebSocket broadcast in <100ms p99
+- HMAC validation prevents spoofed requests (security test)
+- Rate limiting blocks spam (>100 req/min rejected)
+- Zero polling on UI side (event-driven updates only)
+
+#### Timeline
+
+- **Effort**: 6-8 hours
+- **Target**: Week 5 (November 25-29, 2025)
+- **Dependency**: After BE-001.5 (Redis Presence) and BE-001.7 (Circuit Breakers)
 
 ---
 

@@ -266,6 +266,50 @@ lock_mechanism:
     - TTL automatico
     - Retry logic semplice
 
+presence_state:
+  scelta: Redis Hashes + Sets (Week 4)
+  alternative_considerate:
+    - In-memory Map (current, single-instance only)
+    - Redis Streams (scartata: overkill per state)
+  motivazione: |
+    - Enables multi-instance coordination (Kubernetes multi-pod)
+    - TTL-based auto-cleanup (5min user, 10min room)
+    - Atomic operations (SADD, HSET)
+    - Graceful fallback to in-memory if Redis down
+  implementation: |
+    presence:user:{userId} → { socketId, lastSeen, rooms[] }
+    presence:room:{roomId} → Set(userId1, userId2, ...)
+    presence:socket:{socketId} → { userId, connectedAt }
+
+circuit_breaker:
+  scelta: Custom CircuitBreakerService (Week 4)
+  alternative_considerate:
+    - opossum library (scartata: overhead)
+    - No circuit breaker (scartata: cascade failures)
+  motivazione: |
+    - Prevent cascade failures (Redis down → fallback in-memory)
+    - Graceful degradation (continue serving with limited features)
+    - Health check endpoint for Kubernetes liveness/readiness
+    - Exponential backoff retry (1s, 2s, 4s, 8s, max 30s)
+  states: |
+    CLOSED (normal) → OPEN (failures ≥ threshold) → HALF_OPEN (retry after timeout)
+
+external_integration:
+  scelta: HTTP Webhook Receiver (Week 5)
+  alternative_considerate:
+    - Polling external API (scartata: latency + load)
+    - gRPC streaming (scartata: complexity)
+  motivazione: |
+    - Push-based updates from EMR/PACS/HL7 feeds
+    - Zero UI polling (event-driven architecture)
+    - HMAC signature validation (security)
+    - Broadcast to WebSocket clients in real-time
+  flow: |
+    External System → POST /api/webhooks/resource-updated
+      → Validate HMAC → Query Redis rooms
+        → Broadcast WebSocket event to subscribed clients
+          → UI updates instantly (no polling)
+
 logging_format:
   scelta: NDJSON (Newline Delimited JSON)
   alternative_considerate:
