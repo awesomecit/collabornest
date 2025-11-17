@@ -65,11 +65,8 @@ reports/
 # Code duplication reports
 .jscpd/
 
+# Generated release notes (temporary)
+RELEASE_NOTES.md
 
-# SonarJS Analysis Reports
-reports/
-*.report.json
-*.report.html
-
-# Code duplication reports
-.jscpd/
+# Backup files (auto-generated)
+*.backup-*
