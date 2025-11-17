@@ -44,10 +44,25 @@ services:
       retries: 5
       start_period: 10s
 
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: ${npm_package_name:-app}-redisinsight
+    restart: unless-stopped
+    ports:
+      - '5540:5540'
+    volumes:
+      - redisinsight_data:/data
+    networks:
+      - app-network
+    depends_on:
+      - redis
+
 volumes:
   app_postgres_data:
     driver: local
   redis_data:
+    driver: local
+  redisinsight_data:
     driver: local
 
 networks:

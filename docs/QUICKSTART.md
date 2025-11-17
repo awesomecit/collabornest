@@ -53,7 +53,69 @@ npm install
 
 ---
 
-## Step 2: Configurazione Ambiente (2 minuti)
+## Step 2: Avvio Database (Redis & PostgreSQL) - Opzionale (3 minuti)
+
+> ⚠️ **Redis richiesto per Distributed Locks** (BE-001.3). PostgreSQL opzionale per sviluppo.
+
+### Opzione A: Con Docker (Raccomandato)
+
+```bash
+# Avvia Redis + PostgreSQL + RedisInsight
+docker compose up -d
+
+# Verifica stato
+docker ps
+# Dovresti vedere:
+# - app-redis (porta 6379)
+# - app-postgres-db (porta 5432)
+# - app-redisinsight (porta 5540)
+```
+
+### Opzione B: Solo Redis (Locks funzionanti)
+
+```bash
+# Solo Redis (senza PostgreSQL)
+docker compose up -d redis
+
+# O installa Redis localmente
+brew install redis        # macOS
+sudo apt install redis    # Ubuntu/Debian
+```
+
+### 🔍 RedisInsight - GUI per Redis (Sviluppo)
+
+**Accedi a**: `http://localhost:5540`
+
+**Configurazione connessione**:
+
+- **Host**: `redis` (nome container, NON localhost!)
+- **Port**: `6379`
+- **Name**: `CollaborNest Local`
+
+**Cosa puoi vedere**:
+
+- Lock keys in tempo reale: `lock:doc:123:main`
+- TTL attivo dei lock (5 minuti default)
+- Heartbeat updates ogni 60s
+- Monitor comandi Redis live
+
+**Comandi utili**:
+
+```redis
+# Vedi tutti i lock attivi
+KEYS lock:*
+
+# Dettaglio lock specifico
+GET lock:doc:123:main
+TTL lock:doc:123:main
+
+# Monitor in real-time
+MONITOR
+```
+
+---
+
+## Step 3: Configurazione Ambiente (2 minuti)
 
 **Crea file `.env` dalla template:**
 
@@ -82,7 +144,7 @@ NODE_ENV=development
 
 ---
 
-## Step 3: Avvio Server (2 minuti)
+## Step 4: Avvio Server (2 minuti)
 
 ```bash
 npm run start:dev
@@ -102,7 +164,7 @@ npm run start:dev
 
 ---
 
-## Step 4: Test Connessione WebSocket (3 minuti)
+## Step 5: Test Connessione WebSocket (3 minuti)
 
 ### Opzione A: Test Rapido (Browser Console)
 
@@ -163,7 +225,7 @@ Summary: 13/13 scenarios passed in 5.99s
 
 ---
 
-## Step 5: Integrazione con Frontend
+## Step 6: Integrazione con Frontend
 
 ### Setup React/Vue/Angular
 
