@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RedisLockService } from './redis-lock.service';
 import Redis from 'ioredis';
+import { RedisKeyFactory } from '../constants/redis-keys.enum';
 
 /**
  * BE-001.3 Distributed Locks - BDD Tests
@@ -35,13 +36,14 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
 
   beforeEach(async () => {
     // Create service with test Redis instance (db=15)
-    service = new RedisLockService(redis);
+    // Pass undefined for config service (not needed when Redis instance provided)
+    service = new RedisLockService(undefined, redis);
 
     // Initialize service (skips Redis creation, uses injected instance)
     await service.onModuleInit();
 
     // Clean up test keys before each test
-    const keys = await redis.keys('lock:*');
+    const keys = await redis.keys(RedisKeyFactory.lockPattern());
     if (keys.length > 0) {
       await redis.del(...keys);
     }
@@ -70,7 +72,9 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   describe('Scenario 1: Acquire exclusive editor lock', () => {
     it('should acquire lock when no existing lock', async () => {
       // GIVEN - No existing lock
-      const existingLock = await redis.get(`lock:${TEST_RESOURCE_ID}`);
+      const existingLock = await redis.get(
+        RedisKeyFactory.lock(TEST_RESOURCE_ID),
+      );
       expect(existingLock).toBeNull();
 
       // WHEN - User A requests lock
@@ -84,7 +88,7 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
       expect(acquired).toBe(true);
 
       // AND - Lock stored in Redis
-      const lockData = await redis.get(`lock:${TEST_RESOURCE_ID}`);
+      const lockData = await redis.get(RedisKeyFactory.lock(TEST_RESOURCE_ID));
       expect(lockData).not.toBeNull();
 
       const lockInfo = JSON.parse(lockData!);
@@ -93,7 +97,7 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
       expect(lockInfo.expiresAt).toBeGreaterThan(Date.now()); // Future
 
       // AND - TTL is set (approximately 5 minutes)
-      const ttl = await redis.pttl(`lock:${TEST_RESOURCE_ID}`);
+      const ttl = await redis.pttl(RedisKeyFactory.lock(TEST_RESOURCE_ID));
       expect(ttl).toBeGreaterThan(DEFAULT_TTL_MS - 1000); // Allow 1s tolerance
       expect(ttl).toBeLessThanOrEqual(DEFAULT_TTL_MS);
     });

@@ -231,6 +231,35 @@ export class WebSocketGatewayConfigService {
   }
 
   /**
+   * Get Redis connection configuration for distributed locks (BE-001.3)
+   *
+   * ⚠️ TODO REFACTOR: Move to separate RedisConfigService (SRP violation)
+   * This method temporarily lives here to follow existing gateway pattern.
+   * Future: Create src/websocket-gateway/config/redis-config.service.ts
+   *
+   * Environment Variables:
+   * - REDIS_HOST: Redis server host (default: localhost)
+   * - REDIS_PORT: Redis server port (default: 6379)
+   * - REDIS_DB: Redis database index (default: 0)
+   * - REDIS_PASSWORD: Redis password (optional)
+   *
+   * @returns Redis connection configuration object
+   */
+  getRedisConfig(): {
+    host: string;
+    port: number;
+    db: number;
+    password?: string;
+  } {
+    return {
+      host: this.configService.get<string>('REDIS_HOST', 'localhost'),
+      port: this.configService.get<number>('REDIS_PORT', 6379),
+      db: this.configService.get<number>('REDIS_DB', 0),
+      password: this.configService.get<string>('REDIS_PASSWORD'),
+    };
+  }
+
+  /**
    * Get JWT secret for token validation
    *
    * JWT Authentication Configuration (BE-001.1).

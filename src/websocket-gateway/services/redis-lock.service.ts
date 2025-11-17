@@ -1,24 +1,35 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import { RedisKeyFactory } from '../constants/redis-keys.enum';
+import {
+  RedisLockError,
+  RedisLockLog,
+} from '../constants/redis-lock-messages.enum';
+import { LockConfig } from '../constants/redis-config';
+import { WebSocketGatewayConfigService } from '../config/gateway-config.service';
 
 /**
  * Redis-backed distributed lock service for BE-001.3
  *
  * Provides exclusive editor locking with TTL and automatic cleanup.
  *
- * @see docs/project/BE-001.3-LOCK-SPECIFICATION.md
+ * @see docs/project/BE-001.3-MEETING-OUTCOME.md
  */
 @Injectable()
 export class RedisLockService {
-  private readonly logger = new Logger(RedisLockService.name);
+  private readonly logger = new Logger(`[RedisLock] ${RedisLockService.name}`);
   private redis: Redis | null = null;
   private redisOwned = false; // Track if we created the Redis instance
 
   /**
-   * Constructor allows dependency injection of Redis instance (for testing)
+   * Constructor with dependency injection
+   * @param config - WebSocket Gateway config service (for Redis connection)
    * @param redisInstance - Optional Redis instance (for testing with db=15)
    */
-  constructor(redisInstance?: Redis) {
+  constructor(
+    private readonly config?: WebSocketGatewayConfigService,
+    redisInstance?: Redis,
+  ) {
     if (redisInstance) {
       this.redis = redisInstance;
       this.redisOwned = false; // Externally provided, don't close in onModuleDestroy
@@ -31,19 +42,25 @@ export class RedisLockService {
   async onModuleInit(): Promise<void> {
     // Skip if Redis already provided via constructor (testing scenario)
     if (this.redis) {
-      this.logger.log('Using externally provided Redis instance');
+      this.logger.log(RedisLockLog.REDIS_EXTERNAL);
       return;
     }
 
+    if (!this.config) {
+      throw new Error(
+        'WebSocketGatewayConfigService not injected. Cannot initialize Redis.',
+      );
+    }
+
     try {
+      const redisConfig = this.config.getRedisConfig();
+
       this.redis = new Redis({
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        db: parseInt(process.env.REDIS_DB || '0', 10),
-        password: process.env.REDIS_PASSWORD || undefined,
-        retryStrategy: times => {
-          return Math.min(times * 50, 2000);
-        },
+        host: redisConfig.host,
+        port: redisConfig.port,
+        db: redisConfig.db,
+        password: redisConfig.password,
+        retryStrategy: times => Math.min(times * 50, 2000),
       });
 
       this.redisOwned = true; // We created this instance
@@ -53,7 +70,7 @@ export class RedisLockService {
       });
 
       this.redis.on('connect', () => {
-        this.logger.log('Redis connected successfully');
+        this.logger.log(RedisLockLog.REDIS_CONNECTED);
       });
 
       // Test connection
@@ -74,16 +91,6 @@ export class RedisLockService {
   }
 
   private readonly NOT_IMPLEMENTED_ERROR = 'Not implemented';
-  private readonly LOCK_KEY_PREFIX = 'lock:';
-  private readonly DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes (Meeting Decision 6)
-  private readonly REDIS_NOT_INITIALIZED = 'Redis not initialized';
-
-  /**
-   * Helper: Build lock Redis key
-   */
-  private getLockKey(resourceId: string): string {
-    return `${this.LOCK_KEY_PREFIX}${resourceId}`;
-  }
 
   /**
    * Helper: Check if existing lock allows reacquisition by same user
@@ -166,15 +173,15 @@ export class RedisLockService {
   async acquireLock(
     resourceId: string,
     userId: string,
-    ttlMs: number = this.DEFAULT_TTL_MS,
+    ttlMs: number = LockConfig.DEFAULT_TTL_MS,
   ): Promise<boolean> {
     if (!this.redis) {
-      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
       return false;
     }
 
     try {
-      const lockKey = this.getLockKey(resourceId);
+      const lockKey = RedisKeyFactory.lock(resourceId);
 
       // Check existing lock (idempotency)
       const existingLockCheck = await this.checkExistingLock(
@@ -223,12 +230,12 @@ export class RedisLockService {
    */
   async releaseLock(resourceId: string, userId: string): Promise<boolean> {
     if (!this.redis) {
-      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
       return false;
     }
 
     try {
-      const lockKey = this.getLockKey(resourceId);
+      const lockKey = RedisKeyFactory.lock(resourceId);
       const existingLock = await this.redis.get(lockKey);
 
       if (!existingLock) {
@@ -275,15 +282,15 @@ export class RedisLockService {
   async renewLock(
     resourceId: string,
     userId: string,
-    ttlMs: number = this.DEFAULT_TTL_MS,
+    ttlMs: number = LockConfig.DEFAULT_TTL_MS,
   ): Promise<boolean> {
     if (!this.redis) {
-      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
       return false;
     }
 
     try {
-      const lockKey = this.getLockKey(resourceId);
+      const lockKey = RedisKeyFactory.lock(resourceId);
       const existingLock = await this.redis.get(lockKey);
 
       if (!existingLock) {
@@ -335,12 +342,12 @@ export class RedisLockService {
     expiresAt: number;
   } | null> {
     if (!this.redis) {
-      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
       return null;
     }
 
     try {
-      const lockKey = this.getLockKey(resourceId);
+      const lockKey = RedisKeyFactory.lock(resourceId);
       const lockData = await this.redis.get(lockKey);
 
       if (!lockData) {
