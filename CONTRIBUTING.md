@@ -29,7 +29,7 @@ Thank you for your interest in contributing! This guide will help you get starte
 
    ```bash
    git clone <repository-url>
-   cd nestjs-template-generator
+   cd collabornest
    ```
 
 2. **Install dependencies**

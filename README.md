@@ -1,11 +1,45 @@
 # CollaborNest — Real-Time Collaboration System for Healthcare
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/your-org/collabornest/ci.yml?branch=main)](https://github.com/your-org/collabornest/actions)
-[![Issues](https://img.shields.io/github/issues/your-org/collabornest)](https://github.com/your-org/collabornest/issues)
-[![Good First Issues](https://img.shields.io/github/issues/your-org/collabornest/good%20first%20issue?color=7057ff)](https://github.com/your-org/collabornest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/antoniocittadino/collabornest/ci.yml?branch=main)](https://github.com/antoniocittadino/collabornest/actions)
+[![Issues](https://img.shields.io/github/issues/antoniocittadino/collabornest)](<https://github.com/antoniocittad--->
+
+## 📄 License
+
+**CollaborNest** is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](./LICENSE).
+
+### What This Means
+
+- ✅ **Free for self-hosting**: Use, modify, and deploy on your own infrastructure
+- ✅ **Open source contributions**: Fork, modify, and contribute back to the community
+- ⚠️ **SaaS requirement**: If you offer CollaborNest as a service (SaaS), you must open-source your modifications
+- 💼 **Commercial license available**: Need to use CollaborNest without AGPL obligations? Contact us for a commercial license
+
+**Why AGPL-3.0?**
+
+We chose AGPL-3.0 to ensure that improvements to CollaborNest remain open-source when used in hosted services, while allowing commercial licensing for businesses that prefer proprietary solutions.
+
+**Commercial Licensing**: Starting at **$2,500/year** for SaaS providers and enterprises. Contact [antonio.cittadino@collabornest.io](mailto:antonio.cittadino@collabornest.io?subject=Commercial%20License%20Inquiry) for pricing and terms.
+
+📄 **[View Commercial License Details](./LICENSE-COMMERCIAL.md)** | **[Pricing Tiers & FAQ](./LICENSE-COMMERCIAL.md#pricing-tiers)**
+
+### Dependencies License Compatibility
+
+All dependencies use permissive licenses (MIT, BSD, Apache-2.0) that are compatible with AGPL-3.0:
+
+- **NestJS**: MIT
+- **Socket.IO**: MIT
+- **ioredis**: MIT
+- **TypeORM**: MIT
+- **Winston**: MIT
+- **PostgreSQL**: PostgreSQL License (BSD-like)
+
+See [LICENSE](./LICENSE) for full terms.ollabornest/issues)
+[![Good First Issues](https://img.shields.io/github/issues/antoniocittadino/collabornest/good%20first%20issue?color=7057ff)](https://github.com/antoniocittadino/collabornest/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
 **CollaborNest** is an open-source real-time collaboration platform designed for healthcare applications. Transform any web application into a collaborative system with **zero code changes** using our JavaScript widget.
+
+> **📜 License**: AGPL-3.0 (commercial licenses available for SaaS/closed-source usage)
 
 > **Status**: 🚧 Active Development | **Version**: 0.2.1 | **Target**: Production Q2 2026
 

@@ -808,7 +808,7 @@ It's not the workflows themselves (though they're effective).
 
 ## Resources
 
-**Repository:** [github.com/yourusername/nestjs-template-generator](https://github.com/yourusername/nestjs-template-generator)
+**Repository:** [github.com/antoniocittadino/collabornest](https://github.com/antoniocittadino/collabornest)
 
 **Key Files:**
 
@@ -818,7 +818,7 @@ It's not the workflows themselves (though they're effective).
 - `docs/prompts/daily-debug-session.md` - Structured debugging
 - `scripts/end-of-day-debrief.sh` - Automated feedback
 
-**License:** MIT
+**License:** AGPL-3.0 (Commercial licenses available)
 **Contributions:** Welcome via PR
 **Discussion:** GitHub Issues
 
