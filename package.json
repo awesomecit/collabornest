@@ -1,6 +1,6 @@
 {
   "name": "collabornest",
-  "version": "0.3.0",
+  "version": "0.2.1",
   "description": "Real-time collaboration platform for healthcare with distributed locking, WebSocket gateway, and resource management",
   "author": "Antonio Cittadino",
   "private": false,
