@@ -205,24 +205,52 @@ describe('BE-001.3: Distributed Locks', () => {
   }, 15000); // Increase timeout to 15s
 
   /**
-   * Scenario 4: Lock TTL mechanism (SKIPPED - unit test coverage sufficient)
+   * Scenario 4: Lock expires automatically after TTL
    *
-   * WHY SKIPPED:
-   * - Gateway uses fixed 300s TTL (5 minutes) - not configurable via WebSocket API
-   * - BDD test would require 5-minute wait (impractical for CI/CD)
-   * - RedisLockService unit tests already verify TTL behavior with real Redis
-   * - Unit test uses custom TTL (5s) and verifies expiration via `hasLock()` check
+   * GIVEN Alice acquires lock with 6-second custom TTL
+   * AND Alice does not extend the lock (no heartbeat)
+   * WHEN 6 seconds pass without activity
+   * THEN Redis should automatically delete the lock key via TTL
+   * AND Bob should successfully acquire the lock (resource available)
    *
-   * COVERAGE:
-   * - src/websocket-gateway/services/redis-lock.service.spec.ts
-   *   - "should acquire lock and set TTL"
-   *   - "should fail to acquire locked resource"
-   *
-   * If TTL configurability is needed, add `ttl` field to LockAcquireDto and update gateway.
+   * NOTE: Uses custom TTL (6s) via LockAcquireDto.ttl field.
+   * Default TTL is 300s (5 min) - too slow for BDD tests.
    */
-  test.skip('Scenario 4: Lock expires automatically after TTL', async () => {
-    // Implementation would require 300s wait - use unit tests instead
-  });
+  test('Scenario 4: Lock expires automatically after TTL', async () => {
+    const resourceId = 'document:test-004/field:input-short-ttl';
+    const customTtl = 6000; // 6 seconds for testing
+
+    // Alice acquires lock with SHORT custom TTL
+    const aliceAcquire = await emitAndWait(
+      aliceClient,
+      'lock:acquire',
+      { resourceId, ttl: customTtl },
+      'lock:acquired',
+      TEST_CONFIG.events.default,
+    );
+
+    expect(aliceAcquire).toMatchObject({
+      resourceId,
+      lockId: expect.stringContaining(resourceId),
+    });
+
+    // Wait for TTL to expire (7 seconds > 6s TTL)
+    await new Promise(resolve => setTimeout(resolve, 7000));
+
+    // Bob should now acquire lock successfully (key deleted by Redis TTL)
+    const bobAcquire = await emitAndWait(
+      bobClient,
+      'lock:acquire',
+      { resourceId },
+      'lock:acquired',
+      TEST_CONFIG.events.default,
+    );
+
+    expect(bobAcquire).toMatchObject({
+      resourceId,
+      lockId: expect.stringContaining(resourceId),
+    });
+  }, 12000); // Timeout 12s (7s wait + margins)
 
   /**
    * Scenario 5: Lock released on disconnection
@@ -420,7 +448,7 @@ describe('BE-001.3: Distributed Locks', () => {
     );
 
     // Bob attempts to release Alice's lock (invalid operation)
-    // Gateway emits WsEvent.ERROR with code LOCK_NOT_HELD
+    // Gateway emits WsEvent.ERROR with type (human-readable) and code (machine)
     const bobRelease = await emitAndWait(
       bobClient,
       'lock:release',
@@ -430,8 +458,10 @@ describe('BE-001.3: Distributed Locks', () => {
     );
 
     expect(bobRelease).toMatchObject({
-      code: 'WS_4013', // WsErrorCode.LOCK_NOT_HELD enum value
+      code: 'WS_4013', // Machine-readable (monitoring)
+      type: 'LOCK_NOT_HELD', // Human-readable (frontend)
       message: expect.stringContaining('do not hold this lock'),
+      timestamp: expect.any(String),
     });
 
     // Verify Alice still holds lock (Charlie gets denied)

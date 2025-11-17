@@ -131,7 +131,8 @@ export const WsErrorMessage: Record<WsErrorCode, string> = {
  * @property details - Optional additional context (e.g., field name, validation errors)
  */
 export interface WsErrorResponse {
-  code: WsErrorCode;
+  code: WsErrorCode; // Machine-readable: WS_4013 (monitoring, logs)
+  type: string; // Human-readable: LOCK_NOT_HELD (frontend switch/case)
   message: string;
   timestamp: string;
   details?: Record<string, unknown>;

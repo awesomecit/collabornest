@@ -27,7 +27,7 @@
 | [INFRA-001](#infra-001-nginx-reverse-proxy-configuration)         | 🏗️ Infra   | Nginx reverse-proxy for WebSocket      | High     | Medium     | Q4 2025  | 📋 Planned  |
 | [INFRA-002](#infra-002-redis-adapter-multi-instance-scaling)      | 🏗️ Infra   | Redis adapter for horizontal scaling   | Medium   | Medium     | Q1 2026  | 📋 Planned  |
 | [FEATURE-003](#feature-003-connection-leak-detection-sweep-job)   | 📋 Feature | Automatic stale connection cleanup     | Medium   | Easy       | Q1 2026  | 📋 Planned  |
-| [BE-001.3](#be-0013-distributed-locks-production-blocker)         | 🔴 Blocker | Editor locking (data loss prevention)  | Critical | High       | Week 3-4 | 🔄 Active   |
+| [BE-001.3](#be-0013-distributed-locks-production-blocker)         | 🔴 Blocker | Editor locking (data loss prevention)  | Critical | High       | Week 3-4 | � 95% Done  |
 | [DEBT-002](#debt-002-standardize-error-handling-architecture)     | 🔧 Debt    | Standardize error handling             | Medium   | Medium     | Q1 2026  | 📋 Open     |
 | [FEATURE-005](#feature-005-audit-trail-structured-logging)        | 📋 Feature | Audit trail & Elastic/OpenSearch       | High     | Medium     | Q2 2026  | 📋 Planned  |
 | [FEATURE-006](#feature-006-asyncapi-schema-generation)            | 📋 Feature | AsyncAPI schema auto-generation        | Low      | Easy       | Q2 2026  | 📋 Planned  |
@@ -489,8 +489,8 @@ For timeline and milestones, see **[ROADMAP.md](./ROADMAP.md)**.
 
 ### BE-001.3: Distributed Locks (Production Blocker)
 
-- **Status**: 🔄 **ACTIVE** (Week 3, November 18-25, 2025)
-- **Priority**: 🔴 **CRITICAL** (UI Team Blocker)
+- **Status**: � **NEARLY COMPLETE** (Week 3, November 18-25, 2025)
+- **Priority**: 🔴 **CRITICAL** (UI Team Blocker - Unblocked ✅)
 - **Meeting Date**: November 18, 2025 (25 min)
 - **Epic**: [EPIC-001: WebSocket Gateway](./EPIC-001-websocket-gateway.md)
 - **Description**: Backend currently allows multiple editors in the same resource with no conflict detection or locking mechanism. High risk of data loss in production healthcare environment.
@@ -521,20 +521,24 @@ LOCK_SINGLE_TAB=true
 
 #### Week 3 Deliverables (Nov 18-25)
 
-- [ ] **RedisLockService TDD Green** (2 days)
-  - `acquireLock()`, `releaseLock()`, `renewLock()`, `getLockHolder()`
-  - Single tab enforcement: Check `userHasActiveLock()`
-  - Backward compat: Auto-convert `doc:123` → `doc:123:main` + deprecation log
+- [x] **RedisLockService TDD Green** (2 days) ✅ Nov 17
+  - `acquireLock()`, `releaseLock()`, `extendLock()`, `getLockHolder()` ✅
+  - Single tab enforcement: Check `userHasActiveLock()` ✅
+  - Backward compat: Auto-convert `doc:123` → `doc:123:main` + deprecation log ✅
 
-- [ ] **WebSocket Lock Events** (1 day)
-  - `lock_acquired`, `lock_released`, `lock_denied`
-  - Disconnect handler with 30s grace period
+- [x] **WebSocket Lock Events** (1 day) ✅ Nov 17
+  - `lock_acquired`, `lock_released`, `lock_denied` ✅
+  - Disconnect handler with 30s grace period ✅
+  - **Enhancement**: Error response dual identifiers (`code` + `type`)
+  - **Enhancement**: Custom TTL support (min 5s, default 300s)
 
-- [ ] **BDD Test Suite** (1 day)
-  - 6 scenarios: acquire, release, renew, deny, disconnect, heartbeat
+- [x] **BDD Test Suite** (1 day) ✅ Nov 17
+  - 7 scenarios passing (6 planned + Scenario 4 TTL expiry)
+  - All Redis lock flows validated (atomic SETNX, Lua script ownership)
 
-- [ ] **API Documentation** (0.5 day)
+- [ ] **API Documentation** (0.5 day) - In Progress
   - Update `UI_TEAM_WEBSOCKET_API.md` with events contract
+  - Document error.type field (human-readable frontend switch/case)
 
 #### Future Backlog (NOT Week 3)
 

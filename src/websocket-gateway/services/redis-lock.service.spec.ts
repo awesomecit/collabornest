@@ -35,8 +35,7 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
 
   beforeEach(async () => {
     // Create service with test Redis instance (db=15)
-    // Pass undefined for config service (not needed when Redis instance provided)
-    service = new RedisLockService(undefined, redis);
+    service = new RedisLockService(redis);
 
     // Initialize service (skips Redis creation, uses injected instance)
     await service.onModuleInit();
@@ -366,7 +365,7 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   describe('Scenario 6: Error handling', () => {
     it('should return false when Redis not initialized', async () => {
       // GIVEN - Service without Redis connection
-      const uninitializedService = new RedisLockService(undefined, undefined);
+      const uninitializedService = new RedisLockService(undefined);
 
       // WHEN - Attempt lock operations
       const acquired = await uninitializedService.acquireLock(

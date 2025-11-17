@@ -5,6 +5,7 @@ import { ValidatedUser } from './auth/jwt-payload.interface';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { WsEvent } from './constants';
 import { WebSocketGateway } from './websocket-gateway.gateway';
+import { RedisLockService } from './services/redis-lock.service';
 
 /**
  * BE-001.1: WebSocket Connection Management - Unit Tests
@@ -130,6 +131,15 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
         }),
     };
 
+    // Mock RedisLockService (unit test doesn't need real Redis)
+    const mockLockService = {
+      acquireLock: jest.fn().mockResolvedValue(true),
+      releaseLock: jest.fn().mockResolvedValue(true),
+      extendLock: jest.fn().mockResolvedValue(true),
+      releaseAllUserLocks: jest.fn().mockResolvedValue(undefined),
+      getLockHolder: jest.fn().mockResolvedValue(null), // No lock holder by default
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebSocketGateway,
@@ -140,6 +150,10 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
         {
           provide: JwtMockService,
           useValue: mockJwtService,
+        },
+        {
+          provide: RedisLockService,
+          useValue: mockLockService,
         },
       ],
     }).compile();
@@ -193,7 +207,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       });
 
       // WHEN
-      gateway.handleDisconnect(mockClient);
+      await gateway.handleDisconnect(mockClient);
 
       // THEN
       expect(gateway.getConnectionPoolSize()).toBe(0);
@@ -372,7 +386,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       );
 
       // WHEN one client disconnects
-      gateway.handleDisconnect(clients[0] as Socket);
+      await gateway.handleDisconnect(clients[0] as Socket);
 
       // THEN new connection should be allowed
       const newClient = createMockSocket('disconnect-user') as Socket;
@@ -710,7 +724,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       expect(gateway.getConnectionPoolSize()).toBe(1);
 
       // WHEN
-      gateway.handleDisconnect(client);
+      await gateway.handleDisconnect(client);
 
       // THEN - Connection should be removed from both maps
       expect(gateway.hasConnection(client.id!)).toBe(false);
@@ -729,8 +743,8 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
       expect(gateway.getConnectionsByUserId('leak-user')).toHaveLength(2);
 
       // WHEN - Close both connections
-      gateway.handleDisconnect(client1);
-      gateway.handleDisconnect(client2);
+      await gateway.handleDisconnect(client1);
+      await gateway.handleDisconnect(client2);
 
       // THEN - User should be removed from index
       expect(gateway.getConnectionsByUserId('leak-user')).toHaveLength(0);
@@ -1165,7 +1179,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
         });
 
         // WHEN - Disconnect
-        gateway.handleDisconnect(mockClient);
+        await gateway.handleDisconnect(mockClient);
 
         // THEN - User removed from all resources (verify via re-join attempt)
         const reconnectedClient = createMockSocket('user888') as Socket;
@@ -1197,9 +1211,9 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
         });
 
         // WHEN - Disconnect
-        gateway.handleDisconnect(mockClient);
+        await gateway.handleDisconnect(mockClient);
 
-        // THEN - user:left with reason='disconnect'
+        // THEN - user:left with reason='user_disconnected'
         expect(mockClient.to).toHaveBeenCalledWith(
           'resource:page:/patient/disconnect-test',
         );
@@ -1207,7 +1221,7 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
           'user:left',
           expect.objectContaining({
             userId: 'user999',
-            reason: 'disconnect',
+            reason: 'user_disconnected',
           }),
         );
       });

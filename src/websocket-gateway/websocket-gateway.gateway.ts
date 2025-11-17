@@ -264,6 +264,7 @@ export class WebSocketGateway
   private rejectConnection(client: Socket, errorCode: WsErrorCode): void {
     const errorResponse: WsErrorResponse = {
       code: errorCode,
+      type: this.getErrorType(errorCode),
       message: WsErrorMessage[errorCode],
       timestamp: new Date().toISOString(),
     };
@@ -1269,9 +1270,12 @@ export class WebSocketGateway
    * Emit connection not found error
    */
   private emitConnectionNotFoundError(client: Socket): void {
+    const errorCode = WsErrorCode.CONNECTION_NOT_FOUND;
     client.emit(WsEvent.ERROR, {
-      code: WsErrorCode.CONNECTION_NOT_FOUND,
-      message: WsErrorMessage[WsErrorCode.CONNECTION_NOT_FOUND],
+      code: errorCode,
+      type: this.getErrorType(errorCode),
+      message: WsErrorMessage[errorCode],
+      timestamp: new Date().toISOString(),
     } as WsErrorResponse);
   }
 
@@ -1329,7 +1333,19 @@ export class WebSocketGateway
   }
 
   /**
-   * Emit lock operation error
+   * Get enum key from enum value (reverse lookup)
+   * @example getErrorType(WsErrorCode.LOCK_NOT_HELD) => 'LOCK_NOT_HELD'
+   */
+  private getErrorType(errorCode: WsErrorCode): string {
+    return (
+      Object.keys(WsErrorCode).find(
+        key => WsErrorCode[key as keyof typeof WsErrorCode] === errorCode,
+      ) || 'UNKNOWN_ERROR'
+    );
+  }
+
+  /**
+   * Emit lock operation error with both code (machine) and type (human)
    */
   private emitLockError(
     client: Socket,
@@ -1337,8 +1353,10 @@ export class WebSocketGateway
     error: unknown,
   ): void {
     client.emit(WsEvent.ERROR, {
-      code: errorCode,
+      code: errorCode, // WS_4013 (monitoring)
+      type: this.getErrorType(errorCode), // LOCK_NOT_HELD (frontend)
       message: (error as Error).message,
+      timestamp: new Date().toISOString(),
     } as WsErrorResponse);
   }
 
