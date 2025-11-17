@@ -1,7 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { RedisLockService } from './redis-lock.service';
 import Redis from 'ioredis';
 import { RedisKeyFactory } from '../constants/redis-keys.enum';
+import { RedisLockService } from './redis-lock.service';
 
 /**
  * BE-001.3 Distributed Locks - BDD Tests

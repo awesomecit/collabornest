@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
+import { WebSocketGatewayConfigService } from '../config/gateway-config.service';
+import { LockConfig } from '../constants/redis-config';
 import { RedisKeyFactory } from '../constants/redis-keys.enum';
 import {
   RedisLockError,
   RedisLockLog,
 } from '../constants/redis-lock-messages.enum';
-import { LockConfig } from '../constants/redis-config';
-import { WebSocketGatewayConfigService } from '../config/gateway-config.service';
 
 /**
  * Redis-backed distributed lock service for BE-001.3

@@ -1,0 +1,381 @@
+# AsyncAPI 2.6.0 Specification for CollaborNest WebSocket Events
+
+asyncapi: '2.6.0'
+info:
+  title: CollaborNest Real-Time API
+  version: '1.0.0'
+  description: |
+    Real-time collaboration events for distributed resource locking,
+    state transitions, and concurrent editing.
+
+    Complements REST API documented in Swagger/OpenAPI.
+  contact:
+    name: CollaborNest Team
+    email: support@collabornest.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  development:
+    url: ws://localhost:3001
+    protocol: ws
+    description: Development WebSocket server
+    variables:
+      port:
+        description: WebSocket port
+        default: '3001'
+  production:
+    url: wss://api.collabornest.example.com
+    protocol: wss
+    description: Production WebSocket server (SSL)
+
+channels:
+  lock/acquired:
+    description: Notifies when a resource lock is successfully acquired
+    subscribe:
+      summary: Lock acquired event
+      operationId: onLockAcquired
+      message:
+        $ref: '#/components/messages/LockAcquired'
+
+  lock/released:
+    description: Notifies when a resource lock is released
+    subscribe:
+      summary: Lock released event
+      operationId: onLockReleased
+      message:
+        $ref: '#/components/messages/LockReleased'
+
+  lock/denied:
+    description: Notifies when a lock request is denied (resource already locked)
+    subscribe:
+      summary: Lock denied event
+      operationId: onLockDenied
+      message:
+        $ref: '#/components/messages/LockDenied'
+
+  lock/expired:
+    description: Notifies when a lock expires due to TTL timeout
+    subscribe:
+      summary: Lock expired event
+      operationId: onLockExpired
+      message:
+        $ref: '#/components/messages/LockExpired'
+
+  resource/state_changed:
+    description: Notifies when a resource state transitions (draft → approved, etc.)
+    subscribe:
+      summary: State changed event
+      operationId: onStateChanged
+      message:
+        $ref: '#/components/messages/StateChanged'
+
+  resource/updated:
+    description: Notifies when resource content is updated (concurrent editing)
+    subscribe:
+      summary: Resource updated event
+      operationId: onResourceUpdated
+      message:
+        $ref: '#/components/messages/ResourceUpdated'
+
+components:
+  messages:
+    LockAcquired:
+      name: LOCK_ACQUIRED
+      title: Lock Acquired
+      summary: Resource lock successfully acquired by user
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LockEventPayload'
+      examples:
+        - name: SurgeryLockAcquired
+          summary: Surgeon acquires lock on surgery resource
+          payload:
+            eventId: evt_123abc
+            timestamp: '2025-11-17T10:30:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: user-789
+            userRole: SURGEON
+            severity: INFO
+            revision: 5
+            action: acquired
+            lockHolderId: user-789
+            expiresAt: '2025-11-17T10:35:00Z'
+
+    LockReleased:
+      name: LOCK_RELEASED
+      title: Lock Released
+      summary: Resource lock released by user
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LockEventPayload'
+      examples:
+        - name: SurgeryLockReleased
+          payload:
+            eventId: evt_124def
+            timestamp: '2025-11-17T10:32:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: user-789
+            userRole: SURGEON
+            severity: INFO
+            revision: 6
+            action: released
+
+    LockDenied:
+      name: LOCK_DENIED
+      title: Lock Denied
+      summary: Lock request denied (already held by another user)
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LockEventPayload'
+      examples:
+        - name: LockDeniedAlreadyHeld
+          payload:
+            eventId: evt_125ghi
+            timestamp: '2025-11-17T10:31:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: user-999
+            userRole: NURSE
+            severity: WARNING
+            revision: 5
+            action: denied
+            lockHolderId: user-789
+            denialReason: 'Lock already held by user-789 until 10:35:00Z'
+
+    LockExpired:
+      name: LOCK_EXPIRED
+      title: Lock Expired
+      summary: Lock expired due to TTL timeout (no heartbeat)
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LockEventPayload'
+      examples:
+        - name: LockExpiredNoHeartbeat
+          payload:
+            eventId: evt_126jkl
+            timestamp: '2025-11-17T10:35:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: system
+            userRole: ADMIN
+            severity: WARNING
+            revision: 5
+            action: expired
+            lockHolderId: user-789
+            denialReason: 'No heartbeat received, TTL expired'
+
+    StateChanged:
+      name: STATE_CHANGED
+      title: State Changed
+      summary: Resource state transitioned (e.g., draft → approved)
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/StateChangeEventPayload'
+      examples:
+        - name: SurgeryApproved
+          payload:
+            eventId: evt_127mno
+            timestamp: '2025-11-17T10:40:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: user-admin
+            userRole: ADMIN
+            severity: INFO
+            revision: 7
+            previousState: UNDER_REVIEW
+            newState: APPROVED
+            newRevision: 8
+            approved: true
+
+    ResourceUpdated:
+      name: RESOURCE_UPDATED
+      title: Resource Updated
+      summary: Resource content modified (concurrent editing notification)
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UpdateEventPayload'
+      examples:
+        - name: SurgeryFieldUpdated
+          payload:
+            eventId: evt_128pqr
+            timestamp: '2025-11-17T10:33:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: user-789
+            userRole: SURGEON
+            severity: INFO
+            revision: 5
+            success: true
+            newRevision: 6
+            changedFields:
+              - procedureType
+              - estimatedDuration
+        - name: ConflictDetected
+          payload:
+            eventId: evt_129stu
+            timestamp: '2025-11-17T10:34:00Z'
+            resourceType: SURGERY
+            resourceId: surg-456
+            userId: user-999
+            userRole: NURSE
+            severity: ERROR
+            revision: 5
+            success: false
+            conflict: true
+            conflictResolution: reject
+            validationErrors:
+              - 'Revision mismatch: expected 6, received 5'
+
+  schemas:
+    BaseEventPayload:
+      type: object
+      required:
+        - eventId
+        - timestamp
+        - resourceType
+        - resourceId
+        - userId
+        - userRole
+        - severity
+        - revision
+      properties:
+        eventId:
+          type: string
+          description: Unique event identifier
+          example: evt_123abc
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp (ISO 8601)
+          example: '2025-11-17T10:30:00Z'
+        resourceType:
+          type: string
+          enum: [SURGERY, PATIENT, REPORT, DOCUMENT]
+          description: Resource type
+        resourceId:
+          type: string
+          description: Resource unique identifier
+          example: surg-456
+        userId:
+          type: string
+          description: User who triggered event
+          example: user-789
+        userRole:
+          type: string
+          enum: [ADMIN, SURGEON, NURSE, VIEWER, GUEST]
+          description: User role
+        severity:
+          type: string
+          enum: [INFO, WARNING, ERROR, CRITICAL]
+          description: Event severity level
+        revision:
+          type: integer
+          minimum: 0
+          description: Resource revision number
+          example: 5
+
+    LockEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEventPayload'
+        - type: object
+          required:
+            - action
+          properties:
+            action:
+              type: string
+              enum: [acquired, released, denied, expired, renewed]
+              description: Lock action
+            lockHolderId:
+              type: string
+              description: User holding the lock (if acquired)
+              example: user-789
+            expiresAt:
+              type: string
+              format: date-time
+              description: Lock expiration time (if acquired)
+              example: '2025-11-17T10:35:00Z'
+            denialReason:
+              type: string
+              description: Reason for denial (if denied/expired)
+              example: 'Lock already held by user-789'
+
+    StateChangeEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEventPayload'
+        - type: object
+          required:
+            - previousState
+            - newState
+            - newRevision
+            - approved
+          properties:
+            previousState:
+              type: string
+              enum:
+                [DRAFT, IN_PROGRESS, UNDER_REVIEW, APPROVED, ARCHIVED, DELETED]
+              description: Previous resource state
+            newState:
+              type: string
+              enum:
+                [DRAFT, IN_PROGRESS, UNDER_REVIEW, APPROVED, ARCHIVED, DELETED]
+              description: New resource state
+            newRevision:
+              type: integer
+              minimum: 1
+              description: New revision after state change
+            approved:
+              type: boolean
+              description: State change approved
+            validationErrors:
+              type: array
+              items:
+                type: string
+              description: Validation errors (if not approved)
+
+    UpdateEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/BaseEventPayload'
+        - type: object
+          required:
+            - success
+            - newRevision
+          properties:
+            success:
+              type: boolean
+              description: Update successful
+            newRevision:
+              type: integer
+              minimum: 1
+              description: New revision after update
+            changedFields:
+              type: array
+              items:
+                type: string
+              description: List of modified fields
+              example: ['procedureType', 'estimatedDuration']
+            validationErrors:
+              type: array
+              items:
+                type: string
+              description: Validation errors (if failed)
+            conflict:
+              type: boolean
+              description: Conflict detected (concurrent edit)
+            conflictResolution:
+              type: string
+              enum: [overwrite, merge, reject]
+              description: Conflict resolution strategy
+
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication (same as REST API)
+
+security:
+  - jwtAuth: []

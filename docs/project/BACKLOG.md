@@ -28,6 +28,8 @@
 | [INFRA-002](#infra-002-redis-adapter-multi-instance-scaling)      | 🏗️ Infra   | Redis adapter for horizontal scaling   | Medium   | Medium     | Q1 2026  | 📋 Planned  |
 | [FEATURE-003](#feature-003-connection-leak-detection-sweep-job)   | 📋 Feature | Automatic stale connection cleanup     | Medium   | Easy       | Q1 2026  | 📋 Planned  |
 | [BE-001.3](#be-0013-distributed-locks-production-blocker)         | 🔴 Blocker | Editor locking (data loss prevention)  | Critical | High       | Week 3-4 | 🔄 Active   |
+| [DEBT-002](#debt-002-standardize-error-handling-architecture)     | 🔧 Debt    | Standardize error handling             | Medium   | Medium     | Q1 2026  | 📋 Open     |
+| [FEATURE-005](#feature-005-audit-trail-structured-logging)        | 📋 Feature | Audit trail & Elastic/OpenSearch       | High     | Medium     | Q2 2026  | 📋 Planned  |
 
 **Legend**:
 
@@ -68,6 +70,118 @@
   - Updated `CONTRIBUTING.md` with "How to Pick a Task" section
   - Updated `README.md` with badges and project navigation
 - **Commit**: Included in v0.2.1+ release
+
+---
+
+### DEBT-002: Standardize error handling architecture
+
+- **Status**: 📋 **OPEN**
+- **Priority**: Medium
+- **Difficulty**: Medium
+- **Target**: Q1 2026
+- **Discovered**: 2025-11-17
+- **Description**: Codebase lacks unified error handling strategy - inconsistent patterns across modules
+- **Current State Analysis**:
+  - **NestJS exceptions**: `NotFoundException`, `BadRequestException` used in controllers (correct)
+  - **Generic Error**: `new Error()` used in services and utils (inconsistent)
+  - **No custom exceptions**: Business logic errors not semantically typed
+  - **ValidationError**: Buried in DTO validator service (not reusable)
+  - **No error codes**: Frontend can't distinguish error types programmatically
+- **Problems**:
+  - Frontend cannot distinguish "Resource not found" vs "Lock denied" without parsing messages
+  - Logs lack structured error classification (debugging difficult)
+  - No consistent error response schema across APIs
+  - Difficult to internationalize error messages (hardcoded strings)
+- **Proposed Solution**: Implement standardized exception hierarchy
+
+  ```typescript
+  // src/common/exceptions/base.exception.ts
+  export abstract class AppException extends Error {
+    constructor(
+      public readonly code: string,
+      public readonly message: string,
+      public readonly statusCode: number,
+      public readonly metadata?: Record<string, unknown>,
+    ) {
+      super(message);
+    }
+  }
+
+  // Business domain exceptions
+  export class ResourceNotFoundException extends AppException {
+    constructor(resourceType: string, resourceId: string) {
+      super(
+        'RESOURCE_NOT_FOUND',
+        `${resourceType} '${resourceId}' not found`,
+        404,
+        { resourceType, resourceId },
+      );
+    }
+  }
+
+  export class LockDeniedException extends AppException {
+    constructor(resourceId: string, lockHolderId: string) {
+      super('LOCK_DENIED', `Resource locked by user ${lockHolderId}`, 409, {
+        resourceId,
+        lockHolderId,
+      });
+    }
+  }
+
+  export class ValidationException extends AppException {
+    constructor(errors: ValidationError[]) {
+      super('VALIDATION_FAILED', 'Input validation failed', 400, { errors });
+    }
+  }
+  ```
+
+- **Error Response Schema** (RFC 7807-inspired):
+
+  ```json
+  {
+    "code": "LOCK_DENIED",
+    "message": "Resource locked by user surgeon-123",
+    "statusCode": 409,
+    "timestamp": "2025-11-17T15:30:00Z",
+    "path": "/api/resources/surgery/surg-456/lock",
+    "metadata": {
+      "resourceId": "surg-456",
+      "lockHolderId": "surgeon-123",
+      "expiresAt": "2025-11-17T15:35:00Z"
+    }
+  }
+  ```
+
+- **Implementation Plan**:
+  1. **Phase 1 (Q1 2026)**: Create exception hierarchy in `src/common/exceptions/`
+     - [ ] `AppException` base class
+     - [ ] Domain exceptions: `ResourceNotFoundException`, `LockDeniedException`, `ValidationException`
+     - [ ] Exception filter to transform exceptions to standard response schema
+     - [ ] Error code enum/constants (SSOT)
+  2. **Phase 2 (Q1 2026)**: Migrate existing code
+     - [ ] Replace `throw new Error()` with custom exceptions in services
+     - [ ] Update controllers to use domain exceptions
+     - [ ] Add error code mapping to frontend TypeScript types
+  3. **Phase 3 (Q2 2026)**: Advanced features
+     - [ ] Internationalization (i18n) for error messages
+     - [ ] Sentry/error tracking integration
+     - [ ] Error analytics dashboard
+- **Deliverables**:
+  - [ ] `src/common/exceptions/` module with base + domain exceptions
+  - [ ] Updated `AllExceptionsFilter` to handle custom exceptions
+  - [ ] Error code constants exported for frontend consumption
+  - [ ] Migration guide in `docs/CONTRIBUTING.md`
+  - [ ] Unit tests for exception hierarchy (100% coverage)
+- **Acceptance Criteria**:
+  - [ ] All business logic errors use custom exceptions (zero `throw new Error()`)
+  - [ ] Error responses follow RFC 7807 schema
+  - [ ] Frontend can programmatically handle errors via `code` field
+  - [ ] Logs include structured error metadata
+  - [ ] Error handling documented in API docs (Swagger)
+- **References**:
+  - [NestJS Exception Filters](https://docs.nestjs.com/exception-filters)
+  - [RFC 7807 Problem Details](https://tools.ietf.org/html/rfc7807)
+  - Current filter: `src/common/filters/all-exceptions.filter.ts`
 
 ---
 
@@ -466,6 +580,86 @@ Create tickets ONLY if real problem emerges:
 - Meeting outcome: `docs/project/BE-001.3-MEETING-OUTCOME.md`
 - Epic: `docs/project/EPIC-001-websocket-gateway.md` (BE-001.3)
 - Redis schema: `lock:{resourceType}:{id}:{section}` → `userId` (TTL 300s)
+
+---
+
+### FEATURE-005: Audit Trail & Structured Logging
+
+**Status**: 📋 Planned | **Target**: Q2 2026 | **Priority**: High | **Effort**: Medium
+
+**Context**: BE-001.6 (EPIC-001) definisce audit trail per WebSocket Gateway. Estendere a sistema enterprise-grade con Elastic Stack.
+
+**Problem**:
+
+- Nessun audit trail implementato (BE-001.6 planned Week 6-7, non in codebase)
+- Assenza di structured logging per troubleshooting
+- Nessuna integrazione Elastic/OpenSearch/Kibana per query avanzate
+
+**Specification Reference** (EPIC-001.md lines 391-410):
+
+- **Format**: NDJSON (Newline-Delimited JSON)
+- **Storage**: PostgreSQL (10-year retention)
+- **Events**: connect, join, lock, edit, disconnect
+- **Indexed Columns**: userId, resourceId, eventType, timestamp
+- **GDPR**: Compliant with data retention policies
+
+**Proposed Solution**:
+
+1. **Implement AuditService** (BE-001.6 baseline):
+   - NDJSON format for machine-readable logs
+   - PostgreSQL storage with indexed queries
+   - Event types: WebSocket (connect, join, lock, edit, disconnect), REST API (CRUD), Auth (login, logout)
+   - Metadata: userId, resourceId, eventType, timestamp, ip, userAgent, correlationId
+
+2. **Integrate Winston** (structured logging):
+   - Replace console.log with Winston logger
+   - Log levels: error, warn, info, debug, trace
+   - Transports: console (dev), file (prod), Elasticsearch (optional)
+   - Correlation IDs for request tracing
+
+3. **Elastic Stack Integration**:
+   - Filebeat/Logstash ingestion pipeline
+   - OpenSearch/Elasticsearch indexing (index-per-month pattern)
+   - Kibana dashboards: user activity, error rates, lock contention, WebSocket connections
+   - Retention policy: 3 months hot, 2 years warm, archive to cold storage
+
+4. **Query API** (optional):
+   - GET /api/audit?userId=X&startDate=Y&endDate=Z
+   - Filter by eventType, resourceId, correlationId
+   - Pagination, CSV export
+
+**Acceptance Criteria**:
+
+- [ ] AuditService implemented with PostgreSQL storage
+- [ ] All WebSocket events logged (connect, join, lock, edit, disconnect)
+- [ ] All REST API operations logged (CRUD, auth)
+- [ ] Winston integrated with structured logging
+- [ ] Correlation IDs in all logs
+- [ ] Filebeat/Logstash configuration documented
+- [ ] Kibana dashboard templates provided
+- [ ] Query API for audit trail access
+- [ ] GDPR-compliant data retention (10 years)
+- [ ] Performance: <5ms p99 latency for audit writes
+
+**Timeline**:
+
+- Week 1-2: AuditService baseline (BE-001.6)
+- Week 3-4: Winston integration + correlation IDs
+- Week 5-6: Elastic Stack setup + Filebeat
+- Week 7-8: Kibana dashboards + Query API
+- Week 9: Testing + documentation
+
+**Dependencies**:
+
+- BE-001.6 (EPIC-001) specification
+- PostgreSQL database (already in use)
+- Docker Compose for Elastic Stack (local dev)
+
+**References**:
+
+- EPIC-001.md (BE-001.6: Audit Trail, lines 391-410)
+- [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html)
+- [Winston Transport Docs](https://github.com/winstonjs/winston#transports)
 
 ---
 
