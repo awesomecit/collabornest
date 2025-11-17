@@ -317,13 +317,20 @@ describe('HealthCheckService', () => {
 
   describe('Lifecycle', () => {
     it('should cleanup Redis connection on module destroy', async () => {
-      const serviceWithOwnedRedis = new HealthCheckService(mockConfig);
-      (serviceWithOwnedRedis as any).redis = mockRedis;
+      // Create service without Redis connection, then inject mock
+      const mockRedisOwned = {
+        ping: jest.fn(),
+        quit: jest.fn().mockResolvedValue('OK'),
+      };
+      const serviceWithOwnedRedis = new HealthCheckService(
+        undefined,
+        mockRedisOwned as any,
+      );
       (serviceWithOwnedRedis as any).redisOwned = true;
 
       await serviceWithOwnedRedis.onModuleDestroy();
 
-      expect(mockRedis.quit).toHaveBeenCalled();
+      expect(mockRedisOwned.quit).toHaveBeenCalled();
     });
 
     it('should not close external Redis instance', async () => {
