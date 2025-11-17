@@ -22,6 +22,7 @@
 | [IMPROVE-002](#improve-002-cicd-github-actions-activation)        | 💡 Improve | CI/CD GitHub Actions activation        | High     | Easy       | Q1 2026  | ⏸️ Blocked  |
 | [FEATURE-001](#feature-001-integration-test-docker-orchestration) | 📋 Feature | Integration test Docker orchestration  | Low      | Medium     | Q2 2026  | 📋 Planned  |
 | [FEATURE-002](#feature-002-e2e-test-coverage-reporting)           | 📋 Feature | E2E test coverage reporting            | Low      | Easy       | Q2 2026  | 📋 Planned  |
+| [FEATURE-004](#feature-004-websocket-stats-rest-api)              | 📋 Feature | WebSocket stats REST API               | Medium   | Easy       | -        | ✅ RESOLVED |
 | [HUSKY-001](#husky-001-husky-v10-compatibility-deprecated-lines)  | 🛠️ Compat  | Husky v10 compatibility                | Low      | Easy       | Q1 2026  | 📋 Open     |
 | [INFRA-001](#infra-001-nginx-reverse-proxy-configuration)         | 🏗️ Infra   | Nginx reverse-proxy for WebSocket      | High     | Medium     | Q4 2025  | 📋 Planned  |
 | [INFRA-002](#infra-002-redis-adapter-multi-instance-scaling)      | 🏗️ Infra   | Redis adapter for horizontal scaling   | Medium   | Medium     | Q1 2026  | 📋 Planned  |
@@ -124,6 +125,25 @@
 - **Difficulty**: Easy
 - **Target**: Q1 2026 (BE-001.2 Presence Tracking)
 - **Description**: Implement automatic sweep job to detect and cleanup stale WebSocket connections
+
+---
+
+### FEATURE-004: WebSocket Stats REST API
+
+- **Status**: ✅ **COMPLETED** (v0.2.2)
+- **Priority**: Medium
+- **Difficulty**: Easy
+- **Resolved**: 2025-11-17
+- **Description**: REST endpoint to expose WebSocket connection pool statistics for UI monitoring
+- **Implementation**:
+  - `GET /api/v1/api/websocket/stats` - Returns totalConnections, uniqueUsers, byTransport, staleConnections
+  - Public endpoint (no JWT required) - aggregate stats only, no sensitive data
+  - Controller: `WebSocketStatsController` with 3 unit tests (all passing)
+  - Documented in `UI_TEAM_WEBSOCKET_API.md` with React example
+- **Use Case**: UI dashboard to show "Users Online" counter and transport breakdown
+- **Rate Limit**: UI should poll max 1 req/5s (not enforced backend, guideline only)
+- **Commit**: Included in v0.2.2+ release
+- **Reference**: `src/websocket-gateway/websocket-stats.controller.ts`
 - **Rationale**: Prevent memory leaks from orphaned connections (network issues, crashed clients, etc.)
 - **Current Implementation**:
   - `cleanupStaleConnections()` method exists (lines 547-585 in websocket-gateway.gateway.ts)

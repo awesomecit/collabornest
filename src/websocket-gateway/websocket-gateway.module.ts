@@ -5,6 +5,7 @@ import { JwtMockService } from './auth';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { JwtConfigKey } from './constants';
 import { WebSocketGateway } from './websocket-gateway.gateway';
+import { WebSocketStatsController } from './websocket-stats.controller';
 
 /**
  * WebSocket Gateway Module
@@ -53,6 +54,7 @@ import { WebSocketGateway } from './websocket-gateway.gateway';
       }),
     }),
   ],
+  controllers: [WebSocketStatsController],
   providers: [WebSocketGateway, WebSocketGatewayConfigService, JwtMockService],
   exports: [WebSocketGateway, WebSocketGatewayConfigService, JwtMockService],
 })

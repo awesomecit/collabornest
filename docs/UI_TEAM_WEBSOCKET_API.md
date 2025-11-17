@@ -460,7 +460,90 @@ curl http://localhost:3000/health
 
 ---
 
-## 🚫 Limitazioni attuali
+## � REST API - Connection Monitoring
+
+Il backend espone un endpoint HTTP per monitorare le connessioni WebSocket attive in tempo reale.
+
+### GET `/api/v1/api/websocket/stats`
+
+Ritorna statistiche aggregate del connection pool.
+
+**Autenticazione**: Nessuna (endpoint pubblico, nessun dato sensibile esposto)
+
+**Response** (200 OK):
+
+```json
+{
+  "totalConnections": 5,
+  "uniqueUsers": 3,
+  "byTransport": {
+    "websocket": 4,
+    "polling": 1
+  },
+  "staleConnections": 0
+}
+```
+
+**Campi**:
+
+- `totalConnections`: Numero totale di connessioni WebSocket attive (tutte le utenti)
+- `uniqueUsers`: Numero di utenti unici connessi
+- `byTransport`: Distribuzione per tipo di trasporto (websocket, polling, webtransport)
+- `staleConnections`: Connessioni inattive (>40s, saranno cleanup automaticamente)
+
+**Esempio uso React**:
+
+```typescript
+import { useState, useEffect } from 'react';
+
+interface PoolStats {
+  totalConnections: number;
+  uniqueUsers: number;
+  byTransport: Record<string, number>;
+  staleConnections: number;
+}
+
+function ConnectionMonitor() {
+  const [stats, setStats] = useState<PoolStats | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const res = await fetch('http://localhost:3000/api/v1/api/websocket/stats');
+      const data = await res.json();
+      setStats(data);
+    };
+
+    // Polling ogni 5 secondi (NON fare meno di 1s per evitare overload)
+    const interval = setInterval(fetchStats, 5000);
+    fetchStats(); // Initial load
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!stats) return <div>Loading...</div>;
+
+  return (
+    <div className="connection-monitor">
+      <h3>Active Connections</h3>
+      <p>Users Online: {stats.uniqueUsers}</p>
+      <p>Total Sockets: {stats.totalConnections}</p>
+      <p>WebSocket: {stats.byTransport.websocket || 0}</p>
+      <p>Polling: {stats.byTransport.polling || 0}</p>
+      {stats.staleConnections > 0 && (
+        <p className="warning">Stale: {stats.staleConnections}</p>
+      )}
+    </div>
+  );
+}
+```
+
+**Rate Limiting**: Non richiesto lato backend, ma UI dovrebbe fare polling max **1 richiesta ogni 5 secondi** per evitare overhead.
+
+**Sicurezza**: Endpoint pubblico ma espone solo metriche aggregate (nessun userId, username, IP). Per monitoraggio admin completo, usa [Socket.IO Admin UI](./dev/BACKEND_SOCKETIO_ADMIN_SETUP.md).
+
+---
+
+## �🚫 Limitazioni attuali
 
 ### ❌ NON ancora implementato (in ROADMAP)
 
