@@ -196,11 +196,59 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   });
 
   /**
-   * BDD Scenario 3: Lock TTL expiry (placeholder)
+   * BDD Scenario 3: Lock TTL expiry
+   *
+   * GIVEN user_alice holds lock with short TTL (100ms)
+   * WHEN TTL expires
+   * THEN lock is automatically removed by Redis
+   *  AND getLockHolder returns null
+   *  AND new user can acquire lock
    */
   describe('Scenario 3: Lock TTL expiry', () => {
-    it.todo('should auto-expire lock after TTL');
-    it.todo('should allow new lock acquisition after expiry');
+    it('should auto-expire lock after TTL', async () => {
+      // GIVEN - User A acquires lock with short TTL (100ms)
+      const shortTtl = 100;
+      const acquired = await service.acquireLock(
+        TEST_RESOURCE_ID,
+        USER_A,
+        shortTtl,
+      );
+      expect(acquired).toBe(true);
+
+      // Verify lock exists
+      const lockBeforeExpiry = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockBeforeExpiry).not.toBeNull();
+      expect(lockBeforeExpiry?.userId).toBe(USER_A);
+
+      // WHEN - Wait for TTL to expire (150ms > 100ms TTL)
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // THEN - Lock auto-expired (Redis removed key)
+      const lockAfterExpiry = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockAfterExpiry).toBeNull();
+    });
+
+    it('should allow new lock acquisition after expiry', async () => {
+      // GIVEN - User A acquires lock with short TTL (100ms)
+      const shortTtl = 100;
+      const acquired = await service.acquireLock(
+        TEST_RESOURCE_ID,
+        USER_A,
+        shortTtl,
+      );
+      expect(acquired).toBe(true);
+
+      // WHEN - Wait for TTL to expire
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // THEN - User B can acquire lock (no conflict)
+      const reacquired = await service.acquireLock(TEST_RESOURCE_ID, USER_B);
+      expect(reacquired).toBe(true);
+
+      // AND - Lock now held by User B
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockInfo?.userId).toBe(USER_B);
+    });
   });
 
   /**
@@ -265,18 +313,98 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   });
 
   /**
-   * BDD Scenario 5: Lock holder inspection (placeholder)
+   * BDD Scenario 5: Lock holder inspection
+   *
+   * GIVEN lock may or may not exist
+   * WHEN getLockHolder is called
+   * THEN returns lock metadata if exists, null otherwise
+   *  AND does not modify lock state (read-only)
    */
   describe('Scenario 5: Get lock holder', () => {
-    it.todo('should return lock info when lock exists');
-    it.todo('should return null when no lock exists');
+    it('should return lock info when lock exists', async () => {
+      // GIVEN - User A holds lock
+      await service.acquireLock(TEST_RESOURCE_ID, USER_A, DEFAULT_TTL_MS);
+
+      // WHEN - Get lock holder
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+
+      // THEN - Returns lock metadata
+      expect(lockInfo).not.toBeNull();
+      expect(lockInfo?.userId).toBe(USER_A);
+      expect(lockInfo?.acquiredAt).toBeGreaterThan(Date.now() - 1000);
+      expect(lockInfo?.expiresAt).toBeGreaterThan(Date.now());
+
+      // AND - Lock still exists (read-only operation)
+      const stillExists = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(stillExists).not.toBeNull();
+      expect(stillExists?.userId).toBe(USER_A);
+    });
+
+    it('should return null when no lock exists', async () => {
+      // GIVEN - No lock exists
+      const existingLock = await redis.get(
+        RedisKeyFactory.lock(TEST_RESOURCE_ID),
+      );
+      expect(existingLock).toBeNull();
+
+      // WHEN - Get lock holder
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+
+      // THEN - Returns null
+      expect(lockInfo).toBeNull();
+    });
   });
 
   /**
-   * BDD Scenario 6: Redis failure handling (placeholder)
+   * BDD Scenario 6: Error handling
+   *
+   * GIVEN Redis connection issues
+   * WHEN lock operations attempted
+   * THEN operations fail gracefully
+   *  AND return false (no exceptions thrown)
+   *  AND log errors appropriately
    */
   describe('Scenario 6: Error handling', () => {
-    it.todo('should throw error when Redis unavailable');
-    it.todo('should handle connection loss gracefully');
+    it('should return false when Redis not initialized', async () => {
+      // GIVEN - Service without Redis connection
+      const uninitializedService = new RedisLockService(undefined, undefined);
+
+      // WHEN - Attempt lock operations
+      const acquired = await uninitializedService.acquireLock(
+        TEST_RESOURCE_ID,
+        USER_A,
+      );
+      const released = await uninitializedService.releaseLock(
+        TEST_RESOURCE_ID,
+        USER_A,
+      );
+      const renewed = await uninitializedService.renewLock(
+        TEST_RESOURCE_ID,
+        USER_A,
+      );
+      const lockInfo =
+        await uninitializedService.getLockHolder(TEST_RESOURCE_ID);
+
+      // THEN - All operations return false/null (no exceptions)
+      expect(acquired).toBe(false);
+      expect(released).toBe(false);
+      expect(renewed).toBe(false);
+      expect(lockInfo).toBeNull();
+    });
+
+    it('should handle corrupted lock data gracefully', async () => {
+      // GIVEN - Corrupted lock data in Redis
+      await redis.set(RedisKeyFactory.lock(TEST_RESOURCE_ID), 'invalid-json-{');
+
+      // WHEN - User attempts to acquire lock
+      const acquired = await service.acquireLock(TEST_RESOURCE_ID, USER_A);
+
+      // THEN - Treats as no lock (allows acquisition)
+      expect(acquired).toBe(true);
+
+      // AND - Lock now valid
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockInfo?.userId).toBe(USER_A);
+    });
   });
 });

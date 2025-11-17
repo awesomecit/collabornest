@@ -94,7 +94,7 @@ export class RedisLockService {
 
   /**
    * Helper: Check if existing lock allows reacquisition by same user
-   * @returns true if same user (idempotent reacquire), false if different user, null if no lock
+   * @returns true if same user (idempotent reacquire), false if different user, null if no lock/corrupted
    */
   private async checkExistingLock(
     lockKey: string,
@@ -110,20 +110,20 @@ export class RedisLockService {
       const lockInfo = JSON.parse(existingLock);
       if (lockInfo.userId === userId) {
         this.logger.debug(
-          `Lock reacquired by same user: ${resourceId} by ${userId}`,
+          `${RedisLockLog.LOCK_REACQUIRED}: ${resourceId} by ${userId}`,
         );
         return true; // Same user (idempotent)
       }
 
       this.logger.debug(
-        `Lock denied: ${resourceId} held by ${lockInfo.userId}, requested by ${userId}`,
+        `${RedisLockLog.LOCK_DENIED}: ${resourceId} held by ${lockInfo.userId}, requested by ${userId}`,
       );
       return false; // Different user
     } catch {
-      this.logger.warn(
-        `Failed to parse existing lock, treating as corrupted: ${lockKey}`,
-      );
-      return null; // Corrupted lock, allow retry
+      // Corrupted lock data - delete and allow retry
+      this.logger.warn(`${RedisLockError.CORRUPTED_LOCK}: ${lockKey}`);
+      await this.redis!.del(lockKey); // Remove corrupted key
+      return null; // Allow retry
     }
   }
 
