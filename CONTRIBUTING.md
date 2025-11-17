@@ -99,6 +99,94 @@ git push -u origin feature/add-user-validation
 - `test/description` - Test additions/fixes
 - `chore/description` - Maintenance tasks
 
+## Package Management Best Practices
+
+### Understanding npm Commands
+
+| Command                           | When to Use                                   | Modifies node_modules? | Modifies package-lock.json? |
+| --------------------------------- | --------------------------------------------- | ---------------------- | --------------------------- |
+| `npm install`                     | First install, adding dependencies (dev)      | ✅ Yes                 | ✅ Yes                      |
+| `npm ci`                          | CI/CD, production deploys (reproducible)      | ✅ Yes (clean install) | ❌ No (fails if mismatched) |
+| `npm install --package-lock-only` | Sync lockfile after manual package.json edits | ❌ No                  | ✅ Yes                      |
+| `npm install <package>`           | Add new dependency                            | ✅ Yes                 | ✅ Yes                      |
+| `npm uninstall <package>`         | Remove dependency                             | ✅ Yes                 | ✅ Yes                      |
+
+### When to Use `npm install --package-lock-only`
+
+✅ **Use this when:**
+
+- You manually edited `package.json` (e.g., version bump during release)
+- You need to sync `package-lock.json` without reinstalling `node_modules`
+- You want to commit updated lockfile without side effects
+- After merging `package.json` conflicts
+
+❌ **DON'T use this when:**
+
+- First time installing dependencies (use `npm install` or `npm ci`)
+- Adding/removing packages (use `npm install <package>`)
+- Fixing security vulnerabilities (use `npm audit fix`)
+- In CI/CD pipelines (use `npm ci` instead)
+
+### Common Workflows
+
+#### 1. Version Bump (Release Process)
+
+```bash
+# Edit package.json version manually (e.g., 1.0.0 → 1.1.0)
+npm install --package-lock-only    # Sync lockfile without reinstalling
+git add package.json package-lock.json
+git commit -m "chore(release): bump version to 1.1.0"
+```
+
+#### 2. After Pulling Changes
+
+```bash
+git pull origin main
+npm ci                              # Clean install from lockfile (faster)
+```
+
+#### 3. Adding New Dependency
+
+```bash
+npm install express                 # Adds to package.json + updates lockfile
+git add package.json package-lock.json
+git commit -m "feat(deps): add express for HTTP server"
+```
+
+#### 4. CI/CD Pipeline
+
+```yaml
+# .github/workflows/ci.yml
+npm ci                              # Reproducible, fails on lockfile mismatch
+npm test
+npm run build
+```
+
+### Security & Determinism
+
+- ✅ **Always commit `package-lock.json`** to version control
+- ✅ **Use `npm ci` in CI/CD** (faster, reproducible, fails on mismatch)
+- ✅ **Use `--package-lock-only` for manual `package.json` edits** (no side effects)
+- ❌ **Never edit `package-lock.json` manually**
+- ❌ **Never gitignore `package-lock.json`** (breaks reproducibility)
+
+### Troubleshooting Package Issues
+
+#### Reset Everything
+
+```bash
+rm -rf node_modules package-lock.json
+npm install                         # Fresh install
+```
+
+#### Check for Inconsistencies
+
+```bash
+npm ls                              # List installed packages
+npm outdated                        # Check for outdated packages
+npm audit                           # Security vulnerabilities
+```
+
 ## Commit Conventions
 
 We use **Conventional Commits** format:
