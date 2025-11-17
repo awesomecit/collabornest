@@ -2,7 +2,7 @@
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/antoniocittadino/collabornest/ci.yml?branch=main)](https://github.com/antoniocittadino/collabornest/actions)
-[![Issues](https://img.shields.io/github/issues/antoniocittadino/collabornest)](<https://github.com/antoniocittad--->
+[![Issues](https://img.shields.io/github/issues/antoniocittadino/collabornest)](<https://github.com/awesomecit>
 
 ## 📄 License
 
@@ -19,7 +19,7 @@
 
 We chose AGPL-3.0 to ensure that improvements to CollaborNest remain open-source when used in hosted services, while allowing commercial licensing for businesses that prefer proprietary solutions.
 
-**Commercial Licensing**: Starting at **$2,500/year** for SaaS providers and enterprises. Contact [antonio.cittadino@collabornest.io](mailto:antonio.cittadino@collabornest.io?subject=Commercial%20License%20Inquiry) for pricing and terms.
+**Commercial Licensing**: Starting at **$2,500/year** for SaaS providers and enterprises. Contact [awesome.cit.dev@gmail.com](mailto:awesome.cit.dev@gmail.com?subject=Commercial%20License%20Inquiry) for pricing and terms.
 
 📄 **[View Commercial License Details](./LICENSE-COMMERCIAL.md)** | **[Pricing Tiers & FAQ](./LICENSE-COMMERCIAL.md#pricing-tiers)**
 

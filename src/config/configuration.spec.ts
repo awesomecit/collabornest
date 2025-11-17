@@ -36,6 +36,7 @@ describe('Configuration', () => {
     expect(config.port).toBe(3000);
     expect(config.nodeEnv).toBe('test');
     expect(config.database).toEqual({
+      enabled: false,
       host: 'localhost',
       port: 5432,
       username: 'postgres',
@@ -76,6 +77,7 @@ describe('Configuration', () => {
     expect(config.port).toBe(4000);
     expect(config.nodeEnv).toBe('production');
     expect(config.database).toEqual({
+      enabled: false,
       host: 'db.example.com',
       port: 5433,
       username: 'testuser',
@@ -126,6 +128,7 @@ describe('Configuration', () => {
     expect(config.port).toBe(3000);
     expect(config.nodeEnv).toBe('test');
     expect(config.database).toEqual({
+      enabled: false,
       host: 'localhost',
       port: 5432,
       username: 'postgres',

@@ -71,6 +71,10 @@ describe('WebSocketGateway - BE-001.1 Unit Tests', () => {
     // Mock Socket.IO server
     const mockServer = {
       emit: jest.fn(),
+      use: jest.fn((middleware: any) => {
+        // Store middleware for testing if needed
+        return mockServer;
+      }),
       sockets: {
         sockets: new Map(),
       },
