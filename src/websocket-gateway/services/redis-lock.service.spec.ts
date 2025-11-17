@@ -34,13 +34,10 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   });
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [RedisLockService],
-    }).compile();
+    // Create service with test Redis instance (db=15)
+    service = new RedisLockService(redis);
 
-    service = module.get<RedisLockService>(RedisLockService);
-
-    // Initialize service (calls onModuleInit)
+    // Initialize service (skips Redis creation, uses injected instance)
     await service.onModuleInit();
 
     // Clean up test keys before each test
@@ -141,12 +138,57 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   });
 
   /**
-   * BDD Scenario 2: Release lock (placeholder - implement after Scenario 1)
+   * BDD Scenario 2: Release lock
+   *
+   * GIVEN user_alice holds editor lock on surgery:test-123
+   * WHEN user_alice releases lock
+   * THEN lock is removed from Redis
+   *  AND subsequent lock attempts succeed
+   *  AND releasing by user_bob is denied (not lock owner)
+   *  AND releasing non-existent lock is idempotent (returns false)
    */
   describe('Scenario 2: Release lock', () => {
-    it.todo('should release lock when held by user');
-    it.todo('should deny release when lock held by different user');
-    it.todo('should be idempotent when no lock exists');
+    it('should release lock when held by user', async () => {
+      // Acquire lock first
+      const acquired = await service.acquireLock(TEST_RESOURCE_ID, USER_A);
+      expect(acquired).toBe(true);
+
+      // Release lock
+      const released = await service.releaseLock(TEST_RESOURCE_ID, USER_A);
+      expect(released).toBe(true);
+
+      // Verify lock removed
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockInfo).toBeNull();
+
+      // Verify new acquisition succeeds
+      const reacquired = await service.acquireLock(TEST_RESOURCE_ID, USER_B);
+      expect(reacquired).toBe(true);
+    });
+
+    it('should deny release when lock held by different user', async () => {
+      // User A acquires lock
+      const acquired = await service.acquireLock(TEST_RESOURCE_ID, USER_A);
+      expect(acquired).toBe(true);
+
+      // User B attempts to release
+      const released = await service.releaseLock(TEST_RESOURCE_ID, USER_B);
+      expect(released).toBe(false);
+
+      // Verify lock still held by User A
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockInfo?.userId).toBe(USER_A);
+    });
+
+    it('should be idempotent when no lock exists', async () => {
+      // Attempt to release non-existent lock
+      const released = await service.releaseLock(TEST_RESOURCE_ID, USER_A);
+      expect(released).toBe(false);
+
+      // Verify no side effects
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockInfo).toBeNull();
+    });
   });
 
   /**
@@ -158,11 +200,64 @@ describe('RedisLockService - BE-001.3 Distributed Locks (BDD)', () => {
   });
 
   /**
-   * BDD Scenario 4: Lock renewal/heartbeat (placeholder)
+   * BDD Scenario 4: Lock renewal/heartbeat
+   *
+   * GIVEN user_alice holds editor lock on surgery:test-123
+   * WHEN user_alice renews lock (heartbeat every 60s per meeting decision)
+   * THEN lock TTL is extended
+   *  AND acquiredAt timestamp is preserved
+   *  AND renewal by user_bob is denied (not lock owner)
    */
   describe('Scenario 4: Lock renewal', () => {
-    it.todo('should renew lock TTL when held by user');
-    it.todo('should deny renewal when lock held by different user');
+    it('should renew lock TTL when held by user', async () => {
+      // Acquire lock with short TTL (100ms for testing)
+      const shortTtl = 100;
+      const acquired = await service.acquireLock(
+        TEST_RESOURCE_ID,
+        USER_A,
+        shortTtl,
+      );
+      expect(acquired).toBe(true);
+
+      // Get original acquiredAt timestamp
+      const originalLock = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(originalLock).not.toBeNull();
+      const originalAcquiredAt = originalLock!.acquiredAt;
+
+      // Wait 50ms (halfway to expiry)
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Renew lock with new TTL (200ms)
+      const newTtl = 200;
+      const renewed = await service.renewLock(TEST_RESOURCE_ID, USER_A, newTtl);
+      expect(renewed).toBe(true);
+
+      // Verify acquiredAt unchanged
+      const renewedLock = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(renewedLock?.acquiredAt).toBe(originalAcquiredAt);
+
+      // Wait 150ms (original lock would have expired)
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Verify lock still active (due to renewal)
+      const stillActive = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(stillActive).not.toBeNull();
+      expect(stillActive?.userId).toBe(USER_A);
+    });
+
+    it('should deny renewal when lock held by different user', async () => {
+      // User A acquires lock
+      const acquired = await service.acquireLock(TEST_RESOURCE_ID, USER_A);
+      expect(acquired).toBe(true);
+
+      // User B attempts to renew
+      const renewed = await service.renewLock(TEST_RESOURCE_ID, USER_B);
+      expect(renewed).toBe(false);
+
+      // Verify lock still held by User A
+      const lockInfo = await service.getLockHolder(TEST_RESOURCE_ID);
+      expect(lockInfo?.userId).toBe(USER_A);
+    });
   });
 
   /**

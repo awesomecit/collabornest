@@ -12,41 +12,201 @@ import Redis from 'ioredis';
 export class RedisLockService {
   private readonly logger = new Logger(RedisLockService.name);
   private redis: Redis | null = null;
+  private redisOwned = false; // Track if we created the Redis instance
 
-  constructor() {
-    // Redis connection initialized in onModuleInit
+  /**
+   * Constructor allows dependency injection of Redis instance (for testing)
+   * @param redisInstance - Optional Redis instance (for testing with db=15)
+   */
+  constructor(redisInstance?: Redis) {
+    if (redisInstance) {
+      this.redis = redisInstance;
+      this.redisOwned = false; // Externally provided, don't close in onModuleDestroy
+    }
   }
 
   /**
-   * Lifecycle hook: Initialize Redis connection
+   * Lifecycle hook: Initialize Redis connection (only if not provided in constructor)
    */
   async onModuleInit(): Promise<void> {
-    // TODO: Implement Redis connection setup
-    // Read REDIS_* env vars, create ioredis client
-    // Handle connection errors gracefully
+    // Skip if Redis already provided via constructor (testing scenario)
+    if (this.redis) {
+      this.logger.log('Using externally provided Redis instance');
+      return;
+    }
+
+    try {
+      this.redis = new Redis({
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+        db: parseInt(process.env.REDIS_DB || '0', 10),
+        password: process.env.REDIS_PASSWORD || undefined,
+        retryStrategy: times => {
+          return Math.min(times * 50, 2000);
+        },
+      });
+
+      this.redisOwned = true; // We created this instance
+
+      this.redis.on('error', err => {
+        this.logger.error('Redis connection error', err);
+      });
+
+      this.redis.on('connect', () => {
+        this.logger.log('Redis connected successfully');
+      });
+
+      // Test connection
+      await this.redis.ping();
+    } catch (error) {
+      this.logger.error('Failed to initialize Redis', error);
+      throw error;
+    }
   }
 
   /**
-   * Lifecycle hook: Cleanup Redis connection
+   * Lifecycle hook: Cleanup Redis connection (only if we created it)
    */
   async onModuleDestroy(): Promise<void> {
-    if (this.redis) {
+    if (this.redis && this.redisOwned) {
       await this.redis.quit();
     }
   }
 
   private readonly NOT_IMPLEMENTED_ERROR = 'Not implemented';
+  private readonly LOCK_KEY_PREFIX = 'lock:';
+  private readonly DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes (Meeting Decision 6)
+  private readonly REDIS_NOT_INITIALIZED = 'Redis not initialized';
+
+  /**
+   * Helper: Build lock Redis key
+   */
+  private getLockKey(resourceId: string): string {
+    return `${this.LOCK_KEY_PREFIX}${resourceId}`;
+  }
+
+  /**
+   * Helper: Check if existing lock allows reacquisition by same user
+   * @returns true if same user (idempotent reacquire), false if different user, null if no lock
+   */
+  private async checkExistingLock(
+    lockKey: string,
+    userId: string,
+    resourceId: string,
+  ): Promise<boolean | null> {
+    const existingLock = await this.redis!.get(lockKey);
+    if (!existingLock) {
+      return null; // No existing lock
+    }
+
+    try {
+      const lockInfo = JSON.parse(existingLock);
+      if (lockInfo.userId === userId) {
+        this.logger.debug(
+          `Lock reacquired by same user: ${resourceId} by ${userId}`,
+        );
+        return true; // Same user (idempotent)
+      }
+
+      this.logger.debug(
+        `Lock denied: ${resourceId} held by ${lockInfo.userId}, requested by ${userId}`,
+      );
+      return false; // Different user
+    } catch {
+      this.logger.warn(
+        `Failed to parse existing lock, treating as corrupted: ${lockKey}`,
+      );
+      return null; // Corrupted lock, allow retry
+    }
+  }
+
+  /**
+   * Helper: Attempt atomic lock acquisition with Redis SET NX
+   */
+  private async attemptAtomicLock(
+    lockKey: string,
+    userId: string,
+    ttlMs: number,
+    resourceId: string,
+  ): Promise<boolean> {
+    const now = Date.now();
+    const lockValue = JSON.stringify({
+      userId,
+      acquiredAt: now,
+      expiresAt: now + ttlMs,
+    });
+
+    const result = await this.redis!.set(lockKey, lockValue, 'PX', ttlMs, 'NX');
+
+    if (result === 'OK') {
+      this.logger.log(`Lock acquired: ${resourceId} by ${userId}`);
+      return true;
+    }
+
+    this.logger.debug(
+      `Lock acquisition race condition: ${resourceId} by ${userId}`,
+    );
+    return false;
+  }
 
   /**
    * Acquire an exclusive lock on a resource
+   *
+   * @param resourceId - Resource identifier (e.g., "document:123:main")
+   * @param userId - User requesting lock
+   * @param ttlMs - Lock TTL in milliseconds (default: 5 minutes per meeting decision)
+   * @returns true if lock acquired, false if held by another user
+   *
+   * Implementation:
+   * - Uses Redis SET NX (atomic - only set if key doesn't exist)
+   * - Stores lock metadata: { userId, acquiredAt, expiresAt }
+   * - Idempotent: Same user can reacquire lock (returns true)
+   * - Meeting Decision 6: TTL = 5 minutes (300s)
    */
   async acquireLock(
-    _resourceId: string,
-    _userId: string,
-    _ttlMs: number = 5 * 60 * 1000, // 5 minutes default (placeholder - decision needed)
+    resourceId: string,
+    userId: string,
+    ttlMs: number = this.DEFAULT_TTL_MS,
   ): Promise<boolean> {
-    // TODO: Implement after Monday meeting decisions
-    throw new Error(this.NOT_IMPLEMENTED_ERROR);
+    if (!this.redis) {
+      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      return false;
+    }
+
+    try {
+      const lockKey = this.getLockKey(resourceId);
+
+      // Check existing lock (idempotency)
+      const existingLockCheck = await this.checkExistingLock(
+        lockKey,
+        userId,
+        resourceId,
+      );
+
+      if (existingLockCheck === true) {
+        // Same user reacquire - update TTL
+        const existingLock = await this.redis.get(lockKey);
+        const lockInfo = JSON.parse(existingLock!);
+        const lockValue = JSON.stringify({
+          userId,
+          acquiredAt: lockInfo.acquiredAt, // Preserve original
+          expiresAt: Date.now() + ttlMs,
+        });
+        await this.redis.set(lockKey, lockValue, 'PX', ttlMs);
+        return true;
+      } else if (existingLockCheck === false) {
+        return false; // Different user holds lock
+      }
+
+      // No existing lock or corrupted - attempt atomic acquisition
+      return await this.attemptAtomicLock(lockKey, userId, ttlMs, resourceId);
+    } catch (error) {
+      this.logger.error(
+        `Error acquiring lock for ${resourceId} by ${userId}`,
+        error,
+      );
+      return false;
+    }
   }
 
   /**
@@ -61,21 +221,101 @@ export class RedisLockService {
    * - Use Redis DEL command
    * - Idempotent: releasing non-existent lock returns false
    */
-  async releaseLock(_resourceId: string, _userId: string): Promise<boolean> {
-    // TODO: Implement in later scenario
-    throw new Error('Not implemented - TDD Red phase');
+  async releaseLock(resourceId: string, userId: string): Promise<boolean> {
+    if (!this.redis) {
+      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      return false;
+    }
+
+    try {
+      const lockKey = this.getLockKey(resourceId);
+      const existingLock = await this.redis.get(lockKey);
+
+      if (!existingLock) {
+        this.logger.debug(`No lock to release: ${resourceId}`);
+        return false;
+      }
+
+      const lockInfo = JSON.parse(existingLock);
+
+      if (lockInfo.userId !== userId) {
+        this.logger.warn(
+          `Release denied: ${resourceId} held by ${lockInfo.userId}, attempted by ${userId}`,
+        );
+        return false;
+      }
+
+      await this.redis.del(lockKey);
+      this.logger.log(`Lock released: ${resourceId} by ${userId}`);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Error releasing lock for ${resourceId} by ${userId}`,
+        error,
+      );
+      return false;
+    }
   }
 
   /**
-   * Renew an existing lock TTL
+   * Renew an existing lock TTL (heartbeat mechanism)
+   *
+   * @param resourceId - Resource identifier
+   * @param userId - User renewing lock (must be lock owner)
+   * @param ttlMs - New TTL in milliseconds (default: 5 minutes per meeting decision)
+   * @returns true if renewed, false if not held by user
+   *
+   * Implementation notes:
+   * - Verify userId matches lock holder
+   * - Preserve original acquiredAt timestamp (only update expiresAt)
+   * - Use Redis SET with PX to update TTL
+   * - Idempotent: returns false if no lock exists
+   * - Meeting Decision 7: Heartbeat interval 60s
    */
   async renewLock(
-    _resourceId: string,
-    _userId: string,
-    _ttlMs: number = 5 * 60 * 1000,
+    resourceId: string,
+    userId: string,
+    ttlMs: number = this.DEFAULT_TTL_MS,
   ): Promise<boolean> {
-    // TODO: Implement after Monday meeting decisions
-    throw new Error(this.NOT_IMPLEMENTED_ERROR);
+    if (!this.redis) {
+      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      return false;
+    }
+
+    try {
+      const lockKey = this.getLockKey(resourceId);
+      const existingLock = await this.redis.get(lockKey);
+
+      if (!existingLock) {
+        this.logger.debug(`No lock to renew: ${resourceId}`);
+        return false;
+      }
+
+      const lockInfo = JSON.parse(existingLock);
+
+      if (lockInfo.userId !== userId) {
+        this.logger.warn(
+          `Renewal denied: ${resourceId} held by ${lockInfo.userId}, attempted by ${userId}`,
+        );
+        return false;
+      }
+
+      const lockValue = JSON.stringify({
+        userId: lockInfo.userId,
+        acquiredAt: lockInfo.acquiredAt,
+        expiresAt: Date.now() + ttlMs,
+      });
+
+      await this.redis.set(lockKey, lockValue, 'PX', ttlMs);
+      this.logger.debug(`Lock renewed: ${resourceId} by ${userId}`);
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Error renewing lock for ${resourceId} by ${userId}`,
+        error,
+      );
+      return false;
+    }
   }
 
   /**
@@ -89,13 +329,34 @@ export class RedisLockService {
    * - Parse JSON value
    * - Return null if key doesn't exist or expired
    */
-  async getLockHolder(_resourceId: string): Promise<{
+  async getLockHolder(resourceId: string): Promise<{
     userId: string;
     acquiredAt: number;
     expiresAt: number;
   } | null> {
-    // TODO: Implement in later scenario
-    throw new Error('Not implemented - TDD Red phase');
+    if (!this.redis) {
+      this.logger.error(this.REDIS_NOT_INITIALIZED);
+      return null;
+    }
+
+    try {
+      const lockKey = this.getLockKey(resourceId);
+      const lockData = await this.redis.get(lockKey);
+
+      if (!lockData) {
+        return null;
+      }
+
+      const lockInfo = JSON.parse(lockData);
+      return {
+        userId: lockInfo.userId,
+        acquiredAt: lockInfo.acquiredAt,
+        expiresAt: lockInfo.expiresAt,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting lock holder for ${resourceId}`, error);
+      return null;
+    }
   }
 
   /**
