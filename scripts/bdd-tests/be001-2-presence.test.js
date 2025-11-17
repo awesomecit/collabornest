@@ -34,12 +34,18 @@ const {
   log,
   getExecutor,
 } = require('./scenario-executor');
+const TEST_CONFIG = require('./test-config');
+const {
+  waitForEvent,
+  emitAndWait,
+  waitForEventOrPending,
+} = require('./event-helpers');
 
-// Test configuration
-const WS_URL = 'http://localhost:3000/collaboration';
-const JWT_SECRET = 'your_super_secure_jwt_secret_32_characters_minimum';
-const JWT_ISSUER = 'collabornest';
-const JWT_AUDIENCE = 'collabornest-users';
+// Test configuration (from centralized config)
+const WS_URL = TEST_CONFIG.websocket.url;
+const JWT_SECRET = TEST_CONFIG.jwt.secret;
+const JWT_ISSUER = TEST_CONFIG.jwt.issuer;
+const JWT_AUDIENCE = TEST_CONFIG.jwt.audience;
 
 // Event names (from WsEvent enum)
 const WsEvent = {
@@ -54,7 +60,7 @@ const WsEvent = {
 /**
  * Helper: Create valid JWT token
  */
-function createValidJWT(userId, expiresIn = '1h') {
+function createValidJWT(userId, expiresIn = TEST_CONFIG.jwt.expiresIn) {
   return jwt.sign(
     {
       sub: userId,
@@ -74,58 +80,48 @@ function createValidJWT(userId, expiresIn = '1h') {
 function connectClient(token) {
   return new Promise((resolve, reject) => {
     const client = io(WS_URL, {
-      path: '/ws/socket.io',
-      path: '/ws/socket.io',
-      transports: ['websocket'],
+      path: TEST_CONFIG.websocket.path,
+      transports: TEST_CONFIG.websocket.transports,
       auth: { token },
-      reconnection: false,
+      reconnection: TEST_CONFIG.websocket.reconnection,
     });
 
     client.on('connect', () => resolve(client));
     client.on('connect_error', err => reject(err));
 
-    setTimeout(() => reject(new Error('Connection timeout')), 5000);
+    setTimeout(
+      () => reject(new Error('Connection timeout')),
+      TEST_CONFIG.connection.timeout,
+    );
   });
 }
 
 /**
  * Helper: Join resource and wait for response
+ * Uses emitAndWait to avoid race conditions
  */
 function joinResource(client, resourceId, mode = 'editor') {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('Join resource timeout'));
-    }, 3000);
-
-    client.once(WsEvent.RESOURCE_JOINED, response => {
-      clearTimeout(timeout);
-      resolve(response);
-    });
-
-    client.emit(WsEvent.RESOURCE_JOIN, {
-      resourceId,
-      resourceType: 'page',
-      mode,
-    });
-  });
+  return emitAndWait(
+    client,
+    WsEvent.RESOURCE_JOIN,
+    { resourceId, mode },
+    WsEvent.RESOURCE_JOINED,
+    TEST_CONFIG.events.default,
+  );
 }
 
 /**
  * Helper: Leave resource and wait for response
+ * Uses emitAndWait to avoid race conditions
  */
 function leaveResource(client, resourceId) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('Leave resource timeout'));
-    }, 3000);
-
-    client.once(WsEvent.RESOURCE_LEFT, response => {
-      clearTimeout(timeout);
-      resolve(response);
-    });
-
-    client.emit(WsEvent.RESOURCE_LEAVE, { resourceId });
-  });
+  return emitAndWait(
+    client,
+    WsEvent.RESOURCE_LEAVE,
+    { resourceId },
+    WsEvent.RESOURCE_LEFT,
+    TEST_CONFIG.events.default,
+  );
 }
 
 // ============================================================================
@@ -505,52 +501,47 @@ async function runTests() {
     userAlice = await connectClient(userAliceToken);
     log('Alice connected', { userId: 'alice' });
 
-    // Listen for resource:all_users event
-    userAlice.on('resource:all_users', data => {
-      aliceAllUsers = data;
-    });
+    // Use emitAndWait for resource:all_users directly
+    aliceAllUsers = await emitAndWait(
+      userAlice,
+      WsEvent.RESOURCE_JOIN,
+      {
+        resourceId: 'document:999/tab:patient-info',
+        resourceType: 'document',
+        mode: 'editor',
+      },
+      'resource:all_users',
+      TEST_CONFIG.events.default,
+    );
 
-    const response = await new Promise(resolve => {
-      userAlice.emit(
-        WsEvent.RESOURCE_JOIN,
-        {
-          resourceId: 'document:999/tab:patient-info',
-          resourceType: 'document',
-          mode: 'editor',
-        },
-        resolve,
-      );
-    });
-
-    log('Alice joined patient-info tab', response);
-    assertEqual(response.success, true, 'Alice join should succeed');
-    assertEqual(response.users.length, 1, 'Alice should be alone in this tab');
+    log('Alice joined patient-info tab', { aliceAllUsers });
+    assertTrue(aliceAllUsers !== undefined, 'Alice should receive all_users');
+    assertEqual(aliceAllUsers.totalCount, 1, 'Alice should see 1 user');
   });
   await and('Bob connects and joins tab:diagnosis', async () => {
     userBob = await connectClient(userBobToken);
     log('Bob connected', { userId: 'bob' });
 
-    userBob.on('resource:all_users', data => {
-      bobAllUsers = data;
-    });
+    // Use emitAndWait for resource:all_users directly
+    bobAllUsers = await emitAndWait(
+      userBob,
+      WsEvent.RESOURCE_JOIN,
+      {
+        resourceId: 'document:999/tab:diagnosis',
+        resourceType: 'document',
+        mode: 'viewer',
+      },
+      'resource:all_users',
+      TEST_CONFIG.events.default,
+    );
 
-    const response = await new Promise(resolve => {
-      userBob.emit(
-        WsEvent.RESOURCE_JOIN,
-        {
-          resourceId: 'document:999/tab:diagnosis',
-          resourceType: 'document',
-          mode: 'viewer',
-        },
-        resolve,
-      );
-    });
-
-    log('Bob joined diagnosis tab', response);
-    assertEqual(response.success, true, 'Bob join should succeed');
-    assertEqual(response.users.length, 1, 'Bob should be alone in this tab');
-
-    await wait(100); // Wait for resource:all_users emission
+    log('Bob joined diagnosis tab', { bobAllUsers });
+    assertTrue(bobAllUsers !== undefined, 'Bob should receive all_users');
+    assertEqual(
+      bobAllUsers.totalCount,
+      2,
+      'Bob should see 2 users (Alice + Bob)',
+    );
   });
 
   await when('Charlie joins tab:procedure', async () => {
@@ -558,32 +549,24 @@ async function runTests() {
     log('Charlie connected', { userId: 'charlie' });
 
     // Wait a bit to ensure Alice and Bob are fully registered
-    await wait(200);
+    await wait(TEST_CONFIG.waits.medium);
 
-    charlieAllUsers = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(
-          new Error(
-            'Timeout waiting for resource:all_users (check server logs)',
-          ),
-        );
-      }, 5000); // Increased timeout
+    log('Emitting RESOURCE_JOIN for Charlie', {
+      resourceId: 'document:999/tab:procedure',
+    });
 
-      userCharlie.on('resource:all_users', data => {
-        log('Received resource:all_users event', data);
-        clearTimeout(timeout);
-        resolve(data);
-      });
-
-      log('Emitting RESOURCE_JOIN for Charlie', {
-        resourceId: 'document:999/tab:procedure',
-      });
-      userCharlie.emit(WsEvent.RESOURCE_JOIN, {
+    // Use emitAndWait to register listener BEFORE emit (avoids race condition)
+    charlieAllUsers = await emitAndWait(
+      userCharlie,
+      WsEvent.RESOURCE_JOIN,
+      {
         resourceId: 'document:999/tab:procedure',
         resourceType: 'document',
         mode: 'editor',
-      });
-    });
+      },
+      'resource:all_users',
+      TEST_CONFIG.events.slow, // Use slow timeout for multi-user scenario
+    );
 
     log('Charlie joined procedure tab', { charlieAllUsers });
   });
@@ -622,19 +605,16 @@ async function runTests() {
 
   await and('All tabs are represented in the response', async () => {
     const tabIds = charlieAllUsers.subResources.map(sr => sr.subResourceId);
-    assertContains(
-      tabIds,
-      'document:999/tab:patient-info',
+    assertTrue(
+      tabIds.includes('document:999/tab:patient-info'),
       'patient-info tab should be included',
     );
-    assertContains(
-      tabIds,
-      'document:999/tab:diagnosis',
+    assertTrue(
+      tabIds.includes('document:999/tab:diagnosis'),
       'diagnosis tab should be included',
     );
-    assertContains(
-      tabIds,
-      'document:999/tab:procedure',
+    assertTrue(
+      tabIds.includes('document:999/tab:procedure'),
       'procedure tab should be included',
     );
 
@@ -695,23 +675,27 @@ async function runTests() {
   await and(
     'resource:joined shows only current tab users (not all tabs)',
     async () => {
-      const charlieJoined = await new Promise(resolve => {
-        userCharlie.emit(
-          WsEvent.RESOURCE_LEAVE,
-          { resourceId: 'document:999/tab:procedure' },
-          () => {
-            userCharlie.emit(
-              WsEvent.RESOURCE_JOIN,
-              {
-                resourceId: 'document:999/tab:procedure',
-                resourceType: 'document',
-                mode: 'editor',
-              },
-              resolve,
-            );
-          },
-        );
-      });
+      // First leave the resource
+      await emitAndWait(
+        userCharlie,
+        WsEvent.RESOURCE_LEAVE,
+        { resourceId: 'document:999/tab:procedure' },
+        WsEvent.RESOURCE_LEFT,
+        TEST_CONFIG.events.default,
+      );
+
+      // Then rejoin and get resource:joined response
+      const charlieJoined = await emitAndWait(
+        userCharlie,
+        WsEvent.RESOURCE_JOIN,
+        {
+          resourceId: 'document:999/tab:procedure',
+          resourceType: 'document',
+          mode: 'editor',
+        },
+        WsEvent.RESOURCE_JOINED,
+        TEST_CONFIG.events.default,
+      );
 
       assertEqual(
         charlieJoined.users.length,

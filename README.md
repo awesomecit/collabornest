@@ -1,6 +1,7 @@
 # CollaborNest — Real-Time Collaboration System for Healthcare
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Commercial License](https://img.shields.io/badge/Commercial-Available-green.svg)](./LICENSE-COMMERCIAL.md)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/antoniocittadino/collabornest/ci.yml?branch=main)](https://github.com/antoniocittadino/collabornest/actions)
 [![Issues](https://img.shields.io/github/issues/antoniocittadino/collabornest)](<https://github.com/awesomecit>
 
