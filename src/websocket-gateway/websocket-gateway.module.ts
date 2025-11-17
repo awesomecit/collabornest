@@ -4,6 +4,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtMockService } from './auth';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import { JwtConfigKey } from './constants';
+import { RedisModule } from './redis/redis.module';
+import { RedisLockService } from './services/redis-lock.service';
 import { WebSocketGateway } from './websocket-gateway.gateway';
 import { WebSocketStatsController } from './websocket-stats.controller';
 
@@ -42,6 +44,7 @@ import { WebSocketStatsController } from './websocket-stats.controller';
 @Module({
   imports: [
     ConfigModule,
+    RedisModule, // Provides Redis client for locks and presence
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -55,7 +58,17 @@ import { WebSocketStatsController } from './websocket-stats.controller';
     }),
   ],
   controllers: [WebSocketStatsController],
-  providers: [WebSocketGateway, WebSocketGatewayConfigService, JwtMockService],
-  exports: [WebSocketGateway, WebSocketGatewayConfigService, JwtMockService],
+  providers: [
+    WebSocketGateway,
+    WebSocketGatewayConfigService,
+    JwtMockService,
+    RedisLockService,
+  ],
+  exports: [
+    WebSocketGateway,
+    WebSocketGatewayConfigService,
+    JwtMockService,
+    RedisLockService,
+  ],
 })
 export class WebSocketGatewayModule {}

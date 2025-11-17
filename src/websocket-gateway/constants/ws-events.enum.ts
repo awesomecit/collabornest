@@ -40,9 +40,16 @@ export enum WsEvent {
   PRESENCE_UPDATE = 'presence:update', // Server → All clients: Presence changed
 
   // Lock management events (BE-001.3)
-  LOCK_ACQUIRED = 'LOCK_ACQUIRED',
-  LOCK_RELEASED = 'LOCK_RELEASED',
-  LOCK_STOLEN = 'LOCK_STOLEN',
+  LOCK_ACQUIRE = 'lock:acquire', // Client → Server: Acquire lock
+  LOCK_RELEASE = 'lock:release', // Client → Server: Release lock
+  LOCK_EXTEND = 'lock:extend', // Client → Server: Extend lock TTL (heartbeat)
+  LOCK_ACQUIRED = 'lock:acquired', // Server → Client: Lock acquired successfully
+  LOCK_DENIED = 'lock:denied', // Server → Client: Lock denied (already locked)
+  LOCK_RELEASED = 'lock:released', // Server → Client: Lock released successfully
+  LOCK_EXTENDED = 'lock:extended', // Server → Client: Lock TTL extended
+  LOCK_EXPIRED = 'lock:expired', // Server → Client: Lock expired (TTL)
+  LOCK_STATUS = 'lock:status', // Server → Client: Current lock status
+  ERROR = 'error', // Server → Client: Generic error event
 
   // Activity tracking events (BE-001.3)
   ACTIVITY_PING = 'ACTIVITY_PING',

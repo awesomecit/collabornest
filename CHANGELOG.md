@@ -7,10 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Distributed Locks (BE-001.3)**: Redis-backed exclusive resource locking
+  - **RedisLockService**: Atomic SETNX operations with TTL (default 5 minutes)
+  - **Lock Events**: `lock:acquire`, `lock:release`, `lock:extend` (heartbeat)
+  - **Lock Responses**: `lock:acquired`, `lock:denied`, `lock:released`, `lock:extended`, `lock:status`
+  - **Automatic Cleanup**: Locks released on user disconnect (broadcasts to resource room)
+  - **UI Coordination**: `lock:status` emitted on `resource:join` (immediate edit mode feedback)
+  - **Redis Keys**: `lock:{resourceId}` → JSON `{userId, acquiredAt, expiresAt}`
+  - **BDD Test Suite**: 7 scenarios (acquire, deny, extend, expiry, disconnect cleanup, race condition, owner validation)
+- **RedisModule**: Centralized Redis client management
+  - **RedisConfigService**: ENV-based config (REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD)
+  - **Connection Factory**: ioredis with retry strategy, error handling, reconnection
+  - **Dependency Injection**: `REDIS_CLIENT` provider exported for all services
+  - **Logging**: Detailed connection lifecycle (connect, ready, error, close, reconnecting)
+- **Constants for Magic Strings** (SSOT enforcement):
+  - **DisconnectReason**: Enum for `user_disconnected`, `admin_disconnect`, `user_left`, etc.
+  - **WsEvent Lock Constants**: `LOCK_ACQUIRE`, `LOCK_RELEASE`, `LOCK_EXTEND`, `LOCK_STATUS`, `ERROR`
+  - **WsErrorCode Lock Errors**: `CONNECTION_NOT_FOUND`, `LOCK_ACQUIRE_FAILED`, `LOCK_RELEASE_FAILED`, `LOCK_EXTEND_FAILED`, `LOCK_NOT_HELD`
+- **Lock DTOs**: Validation for lock event payloads
+  - `LockAcquireDto`: `resourceId` (required), `ttl` (optional, min 5000ms)
+  - `LockReleaseDto`: `resourceId` (required)
+  - `LockExtendDto`: `resourceId`, `lockId` (required), `ttl` (optional)
+
+### Changed
+
+- **handleDisconnect**: Now async, releases all user locks before presence cleanup
+- **handleJoinResource**: Emits `lock:status` after join for UI coordination
+- **WebSocketGatewayModule**: Imports `RedisModule` for Redis client DI
+
 ### Next Steps
 
-- **Week 3-4 (December 2025)**: Distributed Locks implementation (Redis-backed, < 5ms latency)
-- **Week 5-6**: Redis Streams for multi-instance broadcasting
+- **Week 5-6 (December 2025)**: Redis Streams for multi-instance broadcasting
 - **Week 7-8**: Y.js CRDT integration for conflict-free editing
 
 ## [0.3.0] - 2025-11-17

@@ -46,6 +46,11 @@ export enum WsErrorCode {
   RESOURCE_ALREADY_JOINED = 'WS_4006', // BE-001.2: Duplicate join attempt
   RESOURCE_NOT_JOINED = 'WS_4007', // BE-001.2: Leave without join
   INVALID_MODE = 'WS_4008', // BE-001.2: Invalid editor/viewer mode
+  CONNECTION_NOT_FOUND = 'WS_4009', // BE-001.3: Connection info missing
+  LOCK_ACQUIRE_FAILED = 'WS_4010', // BE-001.3: Lock acquire operation failed
+  LOCK_RELEASE_FAILED = 'WS_4011', // BE-001.3: Lock release operation failed
+  LOCK_EXTEND_FAILED = 'WS_4012', // BE-001.3: Lock extend operation failed
+  LOCK_NOT_HELD = 'WS_4013', // BE-001.3: User doesn't hold the lock
 
   // Server errors (5000-5999)
   INTERNAL_SERVER_ERROR = 'WS_5001',
@@ -97,6 +102,15 @@ export const WsErrorMessage: Record<WsErrorCode, string> = {
     'You are not in this resource. Cannot leave.',
   [WsErrorCode.INVALID_MODE]:
     'Invalid collaboration mode. Must be "editor" or "viewer".',
+  [WsErrorCode.CONNECTION_NOT_FOUND]:
+    'Connection information not found. Please reconnect.',
+  [WsErrorCode.LOCK_ACQUIRE_FAILED]:
+    'Failed to acquire lock. Please try again.',
+  [WsErrorCode.LOCK_RELEASE_FAILED]:
+    'Failed to release lock. Please try again.',
+  [WsErrorCode.LOCK_EXTEND_FAILED]: 'Failed to extend lock. Please try again.',
+  [WsErrorCode.LOCK_NOT_HELD]:
+    'You do not hold this lock. Cannot perform operation.',
 
   // Server errors
   [WsErrorCode.INTERNAL_SERVER_ERROR]:

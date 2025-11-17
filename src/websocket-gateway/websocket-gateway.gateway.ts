@@ -11,11 +11,13 @@ import { Server, Socket } from 'socket.io';
 import { JwtMockService } from './auth/jwt-mock.service';
 import { WebSocketGatewayConfigService } from './config/gateway-config.service';
 import {
+  DisconnectReason,
   WsErrorCode,
   WsErrorMessage,
   WsErrorResponse,
   WsEvent,
 } from './constants';
+import { RedisLockService } from './services/redis-lock.service';
 import {
   JoinResourceDto,
   LeaveResourceDto,
@@ -26,6 +28,7 @@ import {
   ResourceUserDto,
   SubResourceUsers,
 } from './dto/presence.dto';
+import { LockAcquireDto, LockExtendDto, LockReleaseDto } from './dto/lock.dto';
 import { getParentResourceId } from './types/resource.types';
 
 /**
@@ -149,6 +152,7 @@ export class WebSocketGateway
   constructor(
     private readonly config: WebSocketGatewayConfigService,
     private readonly jwtService: JwtMockService,
+    private readonly lockService: RedisLockService,
   ) {}
 
   /**
@@ -357,11 +361,12 @@ export class WebSocketGateway
    * 1. Retrieve connection info from pool
    * 2. Remove from connection pool
    * 3. Update user connections index
-   * 4. Log disconnection event
+   * 4. Release all locks (BE-001.3)
+   * 5. Log disconnection event
    *
    * @param client - Socket.IO client socket
    */
-  handleDisconnect(client: Socket): void {
+  async handleDisconnect(client: Socket): Promise<void> {
     const connectionInfo = this.connectionPool.get(client.id);
 
     if (!connectionInfo) {
@@ -391,6 +396,9 @@ export class WebSocketGateway
         this.userConnections.delete(connectionInfo.userId);
       }
     }
+
+    // BE-001.3: Release all locks held by disconnecting user
+    await this.releaseLocksonDisconnect(connectionInfo.userId, client);
 
     // BE-001.2: Cleanup presence tracking for all resources user was in
     this.cleanupUserFromAllResources(client, connectionInfo);
@@ -863,6 +871,106 @@ export class WebSocketGateway
   }
 
   /**
+   * Release all locks held by disconnecting user (BE-001.3 Task 4)
+   *
+   * Called on disconnect to ensure orphaned locks don't block resources.
+   * Broadcasts lock:released to all affected resource rooms.
+   *
+   * @param userId - User ID who is disconnecting
+   * @param client - Socket.IO client (for broadcasting)
+   */
+  private async releaseLocksonDisconnect(
+    userId: string,
+    client: Socket,
+  ): Promise<void> {
+    try {
+      const releasedResourceIds =
+        await this.lockService.releaseAllUserLocks(userId);
+
+      if (releasedResourceIds.length > 0) {
+        console.log('[DEBUG][WS][Gateway] Released locks on disconnect:', {
+          userId,
+          locks: releasedResourceIds,
+          reason: DisconnectReason.USER_DISCONNECTED,
+        });
+
+        // Broadcast lock:released to each resource room
+        for (const resourceId of releasedResourceIds) {
+          client.to(resourceId).emit(WsEvent.LOCK_STATUS, {
+            resourceId,
+            locked: false,
+            lockedBy: null,
+            expiresAt: null,
+            reason: DisconnectReason.USER_DISCONNECTED,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(
+        '[ERROR][WS][Gateway] Failed to release locks on disconnect:',
+        {
+          userId,
+          error: (error as Error).message,
+        },
+      );
+    }
+  }
+
+  /**
+   * Emit current lock status when user joins resource (BE-001.3 Task 6)
+   *
+   * Sends lock:status event to joining user with current resource lock state.
+   * UI uses this to immediately enable/disable edit mode.
+   *
+   * @param client - Socket.IO client who just joined
+   * @param resourceId - Resource identifier
+   */
+  private async emitLockStatus(
+    client: Socket,
+    resourceId: string,
+  ): Promise<void> {
+    try {
+      const lockHolder = await this.lockService.getLockHolder(resourceId);
+
+      if (lockHolder) {
+        // Resource is locked
+        client.emit(WsEvent.LOCK_STATUS, {
+          resourceId,
+          locked: true,
+          lockedBy: {
+            userId: lockHolder.userId,
+          },
+          expiresAt: lockHolder.expiresAt,
+        });
+
+        console.log('[DEBUG][WS][Gateway] Emitted lock status (locked):', {
+          resourceId,
+          toUser: client.id,
+          lockedBy: lockHolder.userId,
+        });
+      } else {
+        // Resource is available
+        client.emit(WsEvent.LOCK_STATUS, {
+          resourceId,
+          locked: false,
+          lockedBy: null,
+          expiresAt: null,
+        });
+
+        console.log('[DEBUG][WS][Gateway] Emitted lock status (available):', {
+          resourceId,
+          toUser: client.id,
+        });
+      }
+    } catch (error) {
+      console.error('[ERROR][WS][Gateway] Failed to emit lock status:', {
+        resourceId,
+        error: (error as Error).message,
+      });
+    }
+  }
+
+  /**
    * Cleanup user from all resources on disconnect (BE-001.2)
    */
   private cleanupUserFromAllResources(
@@ -886,7 +994,7 @@ export class WebSocketGateway
         userId: connInfo.userId,
         username: connInfo.username,
         email: connInfo.email,
-        reason: 'disconnect',
+        reason: DisconnectReason.USER_DISCONNECTED,
       });
     }
 
@@ -1035,6 +1143,9 @@ export class WebSocketGateway
     // Emit cross-tab presence if sub-resource
     this.emitCrossTabPresence(client, resourceId);
 
+    // BE-001.3: Emit current lock status for UI coordination
+    await this.emitLockStatus(client, resourceId);
+
     // Return resource:joined with current user list
     return {
       event: WsEvent.RESOURCE_JOINED,
@@ -1113,6 +1224,236 @@ export class WebSocketGateway
         success: true,
       },
     };
+  }
+
+  /**
+   * WebSocket event handler: Acquire resource lock (BE-001.3 Task 3)
+   *
+   * Attempts to acquire exclusive lock on a resource.
+   * Emits lock:acquired on success, lock:denied if already locked.
+   *
+   * @param client - Socket.IO client
+   * @param payload - Lock acquire request DTO
+   */
+  @SubscribeMessage(WsEvent.LOCK_ACQUIRE)
+  async handleLockAcquire(
+    client: Socket,
+    payload: LockAcquireDto,
+  ): Promise<void> {
+    const connInfo = this.connectionPool.get(client.id);
+    if (!connInfo) {
+      this.emitConnectionNotFoundError(client);
+      return;
+    }
+
+    const { resourceId, ttl } = payload;
+
+    try {
+      const lockAcquired = await this.lockService.acquireLock(
+        resourceId,
+        connInfo.userId,
+        ttl,
+      );
+
+      if (lockAcquired) {
+        await this.emitLockAcquiredResponse(client, resourceId, connInfo);
+      } else {
+        await this.emitLockDeniedResponse(client, resourceId);
+      }
+    } catch (error) {
+      this.emitLockError(client, WsErrorCode.LOCK_ACQUIRE_FAILED, error);
+    }
+  }
+
+  /**
+   * Emit connection not found error
+   */
+  private emitConnectionNotFoundError(client: Socket): void {
+    client.emit(WsEvent.ERROR, {
+      code: WsErrorCode.CONNECTION_NOT_FOUND,
+      message: WsErrorMessage[WsErrorCode.CONNECTION_NOT_FOUND],
+    } as WsErrorResponse);
+  }
+
+  /**
+   * Emit lock acquired response and broadcast status
+   */
+  private async emitLockAcquiredResponse(
+    client: Socket,
+    resourceId: string,
+    connInfo: ConnectionInfo,
+  ): Promise<void> {
+    const lockHolder = await this.lockService.getLockHolder(resourceId);
+    const expiresAt = lockHolder?.expiresAt || new Date().toISOString();
+
+    client.emit(WsEvent.LOCK_ACQUIRED, {
+      resourceId,
+      lockId: `${resourceId}:${connInfo.userId}`,
+      expiresAt,
+    });
+
+    client.to(resourceId).emit(WsEvent.LOCK_STATUS, {
+      resourceId,
+      locked: true,
+      lockedBy: {
+        userId: connInfo.userId,
+        username: connInfo.username,
+      },
+      expiresAt,
+    });
+
+    console.log('[DEBUG][WS][Gateway] Lock acquired:', {
+      resourceId,
+      userId: connInfo.userId,
+    });
+  }
+
+  /**
+   * Emit lock denied response
+   */
+  private async emitLockDeniedResponse(
+    client: Socket,
+    resourceId: string,
+  ): Promise<void> {
+    const lockHolder = await this.lockService.getLockHolder(resourceId);
+
+    client.emit(WsEvent.LOCK_DENIED, {
+      resourceId,
+      reason: 'Resource is locked by another user',
+      lockedBy: lockHolder
+        ? {
+            userId: lockHolder.userId,
+          }
+        : undefined,
+    });
+  }
+
+  /**
+   * Emit lock operation error
+   */
+  private emitLockError(
+    client: Socket,
+    errorCode: WsErrorCode,
+    error: unknown,
+  ): void {
+    client.emit(WsEvent.ERROR, {
+      code: errorCode,
+      message: (error as Error).message,
+    } as WsErrorResponse);
+  }
+
+  /**
+   * WebSocket event handler: Release resource lock (BE-001.3 Task 3)
+   *
+   * Releases lock on a resource (only if owner).
+   * Emits lock:released on success, broadcasts to resource room.
+   *
+   * @param client - Socket.IO client
+   * @param payload - Lock release request DTO
+   */
+  @SubscribeMessage(WsEvent.LOCK_RELEASE)
+  async handleLockRelease(
+    client: Socket,
+    payload: LockReleaseDto,
+  ): Promise<void> {
+    const connInfo = this.connectionPool.get(client.id);
+    if (!connInfo) {
+      this.emitConnectionNotFoundError(client);
+      return;
+    }
+
+    const { resourceId } = payload;
+
+    try {
+      const lockReleased = await this.lockService.releaseLock(
+        resourceId,
+        connInfo.userId,
+      );
+
+      if (lockReleased) {
+        // Emit lock:released to client
+        client.emit(WsEvent.LOCK_RELEASED, {
+          resourceId,
+        });
+
+        // Broadcast lock available to other users in resource room
+        client.to(resourceId).emit(WsEvent.LOCK_STATUS, {
+          resourceId,
+          locked: false,
+          lockedBy: null,
+          expiresAt: null,
+        });
+
+        console.log('[DEBUG][WS][Gateway] Lock released:', {
+          resourceId,
+          userId: connInfo.userId,
+        });
+      } else {
+        this.emitLockError(
+          client,
+          WsErrorCode.LOCK_NOT_HELD,
+          new Error(WsErrorMessage[WsErrorCode.LOCK_NOT_HELD]),
+        );
+      }
+    } catch (error) {
+      this.emitLockError(client, WsErrorCode.LOCK_RELEASE_FAILED, error);
+    }
+  }
+
+  /**
+   * WebSocket event handler: Extend resource lock (BE-001.3 Task 3)
+   *
+   * Extends TTL on existing lock (heartbeat mechanism).
+   * Emits lock:extended on success, lock:denied if not owner.
+   *
+   * @param client - Socket.IO client
+   * @param payload - Lock extend request DTO
+   */
+  @SubscribeMessage(WsEvent.LOCK_EXTEND)
+  async handleLockExtend(
+    client: Socket,
+    payload: LockExtendDto,
+  ): Promise<void> {
+    const connInfo = this.connectionPool.get(client.id);
+    if (!connInfo) {
+      this.emitConnectionNotFoundError(client);
+      return;
+    }
+
+    const { resourceId, ttl } = payload;
+
+    try {
+      const lockRenewed = await this.lockService.renewLock(
+        resourceId,
+        connInfo.userId,
+        ttl,
+      );
+
+      if (lockRenewed) {
+        // Get updated lock metadata
+        const lockHolder = await this.lockService.getLockHolder(resourceId);
+        const expiresAt = lockHolder?.expiresAt || new Date().toISOString();
+
+        // Emit lock:extended to client
+        client.emit(WsEvent.LOCK_EXTENDED, {
+          resourceId,
+          expiresAt,
+        });
+
+        console.log('[DEBUG][WS][Gateway] Lock extended:', {
+          resourceId,
+          userId: connInfo.userId,
+          newExpiresAt: expiresAt,
+        });
+      } else {
+        client.emit(WsEvent.LOCK_DENIED, {
+          resourceId,
+          reason: 'Lock not held or already expired',
+        });
+      }
+    } catch (error) {
+      this.emitLockError(client, WsErrorCode.LOCK_EXTEND_FAILED, error);
+    }
   }
 
   /**

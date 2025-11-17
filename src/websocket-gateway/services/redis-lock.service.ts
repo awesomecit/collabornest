@@ -1,6 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import Redis from 'ioredis';
-import { WebSocketGatewayConfigService } from '../config/gateway-config.service';
 import { LockConfig } from '../constants/redis-config';
 import { RedisKeyFactory } from '../constants/redis-keys.enum';
 import {
@@ -23,60 +22,33 @@ export class RedisLockService {
 
   /**
    * Constructor with dependency injection
-   * @param config - WebSocket Gateway config service (for Redis connection)
-   * @param redisInstance - Optional Redis instance (for testing with db=15)
+   * @param redisClient - Redis client instance from RedisModule
    */
-  constructor(
-    private readonly config?: WebSocketGatewayConfigService,
-    redisInstance?: Redis,
-  ) {
-    if (redisInstance) {
-      this.redis = redisInstance;
-      this.redisOwned = false; // Externally provided, don't close in onModuleDestroy
+  constructor(@Optional() @Inject('REDIS_CLIENT') redisClient?: Redis) {
+    if (redisClient) {
+      this.redis = redisClient;
+      this.redisOwned = false; // Provided by RedisModule, don't close in onModuleDestroy
+      this.logger.log(RedisLockLog.REDIS_EXTERNAL);
     }
   }
 
   /**
-   * Lifecycle hook: Initialize Redis connection (only if not provided in constructor)
+   * Lifecycle hook: Verify Redis connection ready
+   *
+   * Redis instance is now provided by RedisModule via DI.
+   * This hook only validates connection is available.
    */
   async onModuleInit(): Promise<void> {
-    // Skip if Redis already provided via constructor (testing scenario)
-    if (this.redis) {
-      this.logger.log(RedisLockLog.REDIS_EXTERNAL);
-      return;
-    }
-
-    if (!this.config) {
-      throw new Error(
-        'WebSocketGatewayConfigService not injected. Cannot initialize Redis.',
-      );
+    if (!this.redis) {
+      this.logger.error(RedisLockError.REDIS_NOT_INITIALIZED);
+      throw new Error('Redis client not injected. Check RedisModule import.');
     }
 
     try {
-      const redisConfig = this.config.getRedisConfig();
-
-      this.redis = new Redis({
-        host: redisConfig.host,
-        port: redisConfig.port,
-        db: redisConfig.db,
-        password: redisConfig.password,
-        retryStrategy: times => Math.min(times * 50, 2000),
-      });
-
-      this.redisOwned = true; // We created this instance
-
-      this.redis.on('error', err => {
-        this.logger.error('Redis connection error', err);
-      });
-
-      this.redis.on('connect', () => {
-        this.logger.log(RedisLockLog.REDIS_CONNECTED);
-      });
-
-      // Test connection
       await this.redis.ping();
+      this.logger.log('RedisLockService ready (Redis connection verified)');
     } catch (error) {
-      this.logger.error('Failed to initialize Redis', error);
+      this.logger.error('Redis connection test failed', error);
       throw error;
     }
   }

@@ -9,6 +9,7 @@
  * ```
  */
 export { JwtConfigKey, WebSocketConfigKey } from './config-keys.enum';
+export { DisconnectReason } from './disconnect-reasons.enum';
 export {
   WsErrorCode,
   WsErrorMessage,
