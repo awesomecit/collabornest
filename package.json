@@ -52,7 +52,8 @@
     "release:dry": "node scripts/auto-release.js --type=\"auto\" --dry-run",
     "release:minor": "node scripts/auto-release.js --type=\"minor\"",
     "release:major": "node scripts/auto-release.js --type=\"major\"",
-    "release:patch": "node scripts/auto-release.js --type=\"patch\""
+    "release:patch": "node scripts/auto-release.js --type=\"patch\"",
+    "release:changelog": "node scripts/generate-release-notes.sh"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
